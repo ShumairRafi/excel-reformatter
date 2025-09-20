@@ -332,9 +332,6 @@ def apply_excel_styling(worksheet, title, is_summary=False):
     
     return worksheet
 
-# Apply styling to summary sheet
-ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
-
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
     # Check if working days is provided and valid
@@ -462,4 +459,5 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
