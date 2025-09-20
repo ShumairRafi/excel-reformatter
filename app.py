@@ -81,7 +81,7 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
             max_name_length = max(len(str(name)) for name in student_names) + 2  # Add some padding
             
         column_widths = {
-            'A': 12,  # Admission No
+            'A': 15,  # Admission No
             'B': max_name_length,  # Student Name (dynamic width)
             'C': 12,  # Working Days
             'D': 10,  # Present
@@ -466,6 +466,7 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
 
