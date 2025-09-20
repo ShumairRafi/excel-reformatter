@@ -1,4 +1,6 @@
-streamlit>=1.20
-pandas>=1.5
-openpyxl
+streamlit
+pandas
+numpy
 rapidfuzz
+openpyxl
+fpdf
