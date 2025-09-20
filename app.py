@@ -71,6 +71,30 @@ else:
 
 class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
 
+# Get admission number ranges for each class
+st.subheader("Admission Number Ranges by Class")
+admission_ranges = {}
+
+for class_name in class_list:
+    col1, col2 = st.columns(2)
+    with col1:
+        min_admission = st.number_input(
+            f"Starting admission number for {class_name}", 
+            min_value=1, 
+            max_value=10000, 
+            value=276 if class_name == "GRADE 01" else 279,
+            key=f"min_{class_name}"
+        )
+    with col2:
+        max_admission = st.number_input(
+            f"Ending admission number for {class_name}", 
+            min_value=min_admission, 
+            max_value=10000, 
+            value=297 if class_name == "GRADE 01" else 294,
+            key=f"max_{class_name}"
+        )
+    admission_ranges[class_name] = (min_admission, max_admission)
+
 # Get working days
 working_days = st.number_input(
     "Total working days", 
@@ -80,47 +104,51 @@ working_days = st.number_input(
 )
 
 # --- Process the real data
-def process_real_data(df, class_list, working_days):
+def process_real_data(df, class_list, admission_ranges, working_days):
     detailed_dfs = {}
     
-    for class_name in class_list:
-        # Filter data for the current class
-        if 'Class' in df.columns:
-            class_data = df[df['Class'] == class_name].copy()
+    # Ensure we have the required columns
+    required_columns = ['Admission No', 'Student Name', 'Present', 'Absent']
+    available_columns = df.columns.tolist()
+    
+    # Try to map existing columns to required columns using fuzzy matching
+    column_mapping = {}
+    for req_col in required_columns:
+        match = process.extractOne(req_col, available_columns, scorer=fuzz.token_sort_ratio)
+        if match and match[1] > 60:  # If similarity score > 60%
+            column_mapping[req_col] = match[0]
         else:
-            # If no Class column, assume all data is for this class
-            class_data = df.copy()
+            column_mapping[req_col] = req_col
+            st.warning(f"Could not find a matching column for '{req_col}'. Please ensure your data has this column.")
+    
+    # Rename columns for consistency
+    df = df.rename(columns=column_mapping)
+    
+    # Add missing columns with default values
+    if 'Late' not in df.columns:
+        df['Late'] = 0
+    if 'Very_Late' not in df.columns:
+        df['Very_Late'] = 0
+    
+    # Calculate attendance percentage
+    df['Working_Days'] = working_days
+    df['Attendance %'] = (df['Present'] / working_days) * 100
+    
+    # Filter students by admission number for each class
+    for class_name in class_list:
+        min_admission, max_admission = admission_ranges[class_name]
+        
+        # Filter students in this admission range
+        class_data = df[
+            (df['Admission No'] >= min_admission) & 
+            (df['Admission No'] <= max_admission)
+        ].copy()
         
         if class_data.empty:
-            st.warning(f"No data found for class: {class_name}")
+            st.warning(f"No students found in admission range {min_admission}-{max_admission} for class: {class_name}")
             continue
             
-        # Ensure we have the required columns
-        required_columns = ['Admission No', 'Student Name', 'Present', 'Absent']
-        available_columns = class_data.columns.tolist()
-        
-        # Try to map existing columns to required columns using fuzzy matching
-        column_mapping = {}
-        for req_col in required_columns:
-            match = process.extractOne(req_col, available_columns, scorer=fuzz.token_sort_ratio)
-            if match and match[1] > 60:  # If similarity score > 60%
-                column_mapping[req_col] = match[0]
-            else:
-                column_mapping[req_col] = req_col
-                st.warning(f"Could not find a matching column for '{req_col}'. Please ensure your data has this column.")
-        
-        # Rename columns for consistency
-        class_data = class_data.rename(columns=column_mapping)
-        
-        # Add missing columns with default values
-        if 'Late' not in class_data.columns:
-            class_data['Late'] = 0
-        if 'Very_Late' not in class_data.columns:
-            class_data['Very_Late'] = 0
-        
-        # Calculate attendance percentage
-        class_data['Working_Days'] = working_days
-        class_data['Attendance %'] = (class_data['Present'] / working_days) * 100
+        # Add class information
         class_data['Class'] = class_name
         
         # Select and order columns for output
@@ -137,7 +165,7 @@ def process_real_data(df, class_list, working_days):
 
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
-    detailed_dfs = process_real_data(df, class_list, working_days)
+    detailed_dfs = process_real_data(df, class_list, admission_ranges, working_days)
     
     if not detailed_dfs:
         st.error("No data was processed. Please check your input and try again.")
@@ -206,9 +234,10 @@ st.subheader("Instructions")
 st.markdown("""
 1. Upload your attendance summary Excel file
 2. The app will try to detect class names from your data, or you can enter them manually
-3. Set the total working days
-4. Click "Process Attendance Data"
-5. Review the preview and download the generated file
+3. For each class, specify the range of admission numbers
+4. Set the total working days
+5. Click "Process Attendance Data"
+6. Review the preview and download the generated file
 
 The app will create:
 - A summary sheet with class statistics
