@@ -115,8 +115,8 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     
     return worksheet
-    
-#pdf generate button
+
+# Function to generate PDF report
 def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
     """Generate a PDF version of the attendance report"""
     
@@ -181,30 +181,6 @@ def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
     # Save to bytes buffer
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return pdf_bytes
-
-# In your processing section, after the Excel download button, add:
-if detailed_dfs:
-    # Create two columns for the download buttons
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.download_button(
-            label="Download Detailed Attendance Report (Excel)",
-            data=excel_bytes,
-            file_name="detailed_attendance_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    
-    with col2:
-        # Generate PDF report
-        pdf_bytes = generate_pdf_report(summary_df, detailed_dfs, sorted_class_names)
-        
-        st.download_button(
-            label="Download Attendance Report (PDF)",
-            data=pdf_bytes,
-            file_name="attendance_report.pdf",
-            mime="application/pdf"
-        )
 
 # --- Upload files
 uploaded_file = st.file_uploader("Upload your attendance summary Excel file", type=["xls", "xlsx"])
@@ -320,6 +296,56 @@ working_days = st.number_input(
     placeholder="Enter a number between 1 and 365"
 )
 
+# Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
+def sort_class_names(class_names):
+    def extract_number(name):
+        # Extract numbers from class name
+        numbers = re.findall(r'\d+', name)
+        return int(numbers[0]) if numbers else float('inf')
+    
+    return sorted(class_names, key=extract_number)
+
+# Function to create Excel file
+def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
+    # Create a workbook
+    wb = Workbook()
+    
+    # Remove default sheet
+    wb.remove(wb.active)
+    
+    # Add summary sheet
+    ws_summary = wb.create_sheet("Class Summary")
+    
+    # Write summary data
+    for r in dataframe_to_rows(summary_df, index=False, header=True):
+        ws_summary.append(r)
+    
+    # Apply styling to summary sheet
+    ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
+    
+    # Add class sheets
+    for class_name in sorted_class_names:
+        if class_name in detailed_dfs:
+            # Shorten sheet name if too long for Excel
+            sheet_name = class_name[:31] if len(class_name) > 31 else class_name
+            ws_class = wb.create_sheet(sheet_name)
+            
+            # Write class data
+            for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
+                ws_class.append(r)
+            
+            # Get student names for this class to calculate optimal column width
+            student_names = detailed_dfs[class_name]['Student Name'].tolist() if 'Student Name' in detailed_dfs[class_name].columns else []
+            
+            # Apply styling to class sheet
+            ws_class = apply_excel_styling(ws_class, class_name, is_summary=False, student_names=student_names)
+    
+    # Save to bytes
+    towrite = BytesIO()
+    wb.save(towrite)
+    towrite.seek(0)
+    return towrite
+
 # --- Process the real data
 def process_real_data(df, class_list, course_column, class_mapping, working_days):
     detailed_dfs = {}
@@ -415,56 +441,6 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     
     return detailed_dfs
 
-# Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
-def sort_class_names(class_names):
-    def extract_number(name):
-        # Extract numbers from class name
-        numbers = re.findall(r'\d+', name)
-        return int(numbers[0]) if numbers else float('inf')
-    
-    return sorted(class_names, key=extract_number)
-
-# Function to create Excel file
-def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
-    # Create a workbook
-    wb = Workbook()
-    
-    # Remove default sheet
-    wb.remove(wb.active)
-    
-    # Add summary sheet
-    ws_summary = wb.create_sheet("Class Summary")
-    
-    # Write summary data
-    for r in dataframe_to_rows(summary_df, index=False, header=True):
-        ws_summary.append(r)
-    
-    # Apply styling to summary sheet
-    ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
-    
-    # Add class sheets
-    for class_name in sorted_class_names:
-        if class_name in detailed_dfs:
-            # Shorten sheet name if too long for Excel
-            sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
-            
-            # Write class data
-            for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
-                ws_class.append(r)
-            
-            # Get student names for this class to calculate optimal column width
-            student_names = detailed_dfs[class_name]['Student Name'].tolist() if 'Student Name' in detailed_dfs[class_name].columns else []
-            
-            # Apply styling to class sheet
-            ws_class = apply_excel_styling(ws_class, class_name, is_summary=False, student_names=student_names)
-    
-    # Save to bytes
-    towrite = BytesIO()
-    wb.save(towrite)
-    towrite.seek(0)
-    return towrite
-
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
     # Check if working days is provided and valid
@@ -516,15 +492,30 @@ if st.button("Process Attendance Data"):
         selected_class = st.selectbox("Select class to view details", options=sorted_class_names)
         st.dataframe(detailed_dfs[selected_class])
     
-    # --- Download button
+    # --- Download buttons
     excel_bytes = to_excel_bytes(summary_df, detailed_dfs, sorted_class_names)
     
-    st.download_button(
-        label="Download Detailed Attendance Report",
-        data=excel_bytes,
-        file_name="detailed_attendance_report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    # Create two columns for the download buttons
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.download_button(
+            label="Download Detailed Attendance Report (Excel)",
+            data=excel_bytes,
+            file_name="detailed_attendance_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    
+    with col2:
+        # Generate PDF report
+        pdf_bytes = generate_pdf_report(summary_df, detailed_dfs, sorted_class_names)
+        
+        st.download_button(
+            label="Download Attendance Report (PDF)",
+            data=pdf_bytes,
+            file_name="attendance_report.pdf",
+            mime="application/pdf"
+        )
     
     st.success("Attendance data processed successfully! Download the file above.")
 
@@ -555,4 +546,3 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
-
