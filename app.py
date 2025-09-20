@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 from rapidfuzz import process, fuzz
+import re
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -218,6 +219,15 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     
     return detailed_dfs
 
+# Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
+def sort_class_names(class_names):
+    def extract_number(name):
+        # Extract numbers from class name
+        numbers = re.findall(r'\d+', name)
+        return int(numbers[0]) if numbers else float('inf')
+    
+    return sorted(class_names, key=extract_number)
+
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
     detailed_dfs = process_real_data(df, class_list, course_column, class_mapping, working_days)
@@ -228,7 +238,12 @@ if st.button("Process Attendance Data"):
     
     # Create a summary sheet
     summary_data = []
-    for class_name, df_detail in detailed_dfs.items():
+    
+    # Sort class names in natural order
+    sorted_class_names = sort_class_names(detailed_dfs.keys())
+    
+    for class_name in sorted_class_names:
+        df_detail = detailed_dfs[class_name]
         summary_data.append({
             "Class": class_name,
             "Total_Students": len(df_detail),
@@ -252,24 +267,27 @@ if st.button("Process Attendance Data"):
         st.dataframe(summary_df)
     
     with tab2:
-        selected_class = st.selectbox("Select class to view details", options=list(detailed_dfs.keys()))
+        selected_class = st.selectbox("Select class to view details", options=sorted_class_names)
         st.dataframe(detailed_dfs[selected_class])
     
     # --- Download button
-    def to_excel_bytes(summary_df, detailed_dfs):
+    def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         towrite = BytesIO()
         with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
+            # Write summary sheet first
             summary_df.to_excel(writer, index=False, sheet_name="Class Summary")
             
-            for class_name, df_detail in detailed_dfs.items():
-                # Shorten sheet name if too long for Excel
-                sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-                df_detail.to_excel(writer, index=False, sheet_name=sheet_name)
+            # Write class sheets in sorted order
+            for class_name in sorted_class_names:
+                if class_name in detailed_dfs:
+                    # Shorten sheet name if too long for Excel
+                    sheet_name = class_name[:31] if len(class_name) > 31 else class_name
+                    detailed_dfs[class_name].to_excel(writer, index=False, sheet_name=sheet_name)
         
         towrite.seek(0)
         return towrite
     
-    excel_bytes = to_excel_bytes(summary_df, detailed_dfs)
+    excel_bytes = to_excel_bytes(summary_df, detailed_dfs, sorted_class_names)
     
     st.download_button(
         label="Download Detailed Attendance Report",
@@ -296,7 +314,7 @@ st.markdown("""
 
 The app will create:
 - A summary sheet with class statistics
-- Separate sheets for each class with detailed student attendance records
+- Separate sheets for each class with detailed student attendance records (ordered by class name)
 
 **Note:** Your data should include at least these columns (or similar):
 - Admission No
