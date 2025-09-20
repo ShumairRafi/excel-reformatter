@@ -7,7 +7,6 @@ import re
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
-from openpyxl.utils.dataframe import dataframe_to_rows  # Add this line
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -338,43 +337,43 @@ if st.button("Process Attendance Data"):
         st.dataframe(detailed_dfs[selected_class])
     
     # --- Download button
-def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
-    # Create a new workbook
-    wb = Workbook()
-    
-    # Remove the default sheet
-    if 'Sheet' in wb.sheetnames:
-        wb.remove(wb['Sheet'])
-    
-    # Create summary sheet
-    ws_summary = wb.create_sheet("Class Summary")
-    
-    # Write summary data
-    for r in dataframe_to_rows(summary_df, index=False, header=True):
-        ws_summary.append(r)
-    
-    # Style summary sheet
-    style_excel_sheet(ws_summary, "CLASS ATTENDANCE SUMMARY")
-    
-    # Create class sheets
-    for class_name in sorted_class_names:
-        if class_name in detailed_dfs:
-            # Shorten sheet name if too long for Excel
-            sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
-            
-            # Write class data
-            for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
-                ws_class.append(r)
-            
-            # Style class sheet
-            style_excel_sheet(ws_class, f"{class_name} ATTENDANCE REPORT")
-    
-    # Save to BytesIO
-    towrite = BytesIO()
-    wb.save(towrite)
-    towrite.seek(0)
-    return towrite
+    def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
+        # Create a new workbook
+        wb = Workbook()
+        
+        # Remove the default sheet
+        if 'Sheet' in wb.sheetnames:
+            wb.remove(wb['Sheet'])
+        
+        # Create summary sheet
+        ws_summary = wb.create_sheet("Class Summary")
+        
+        # Write summary data
+        for r in dataframe_to_rows(summary_df, index=False, header=True):
+            ws_summary.append(r)
+        
+        # Style summary sheet
+        style_excel_sheet(ws_summary, "CLASS ATTENDANCE SUMMARY")
+        
+        # Create class sheets
+        for class_name in sorted_class_names:
+            if class_name in detailed_dfs:
+                # Shorten sheet name if too long for Excel
+                sheet_name = class_name[:31] if len(class_name) > 31 else class_name
+                ws_class = wb.create_sheet(sheet_name)
+                
+                # Write class data
+                for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
+                    ws_class.append(r)
+                
+                # Style class sheet
+                style_excel_sheet(ws_class, f"{class_name} ATTENDANCE REPORT")
+        
+        # Save to BytesIO
+        towrite = BytesIO()
+        wb.save(towrite)
+        towrite.seek(0)
+        return towrite
     
     excel_bytes = to_excel_bytes(summary_df, detailed_dfs, sorted_class_names)
     
@@ -414,4 +413,3 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
-
