@@ -151,7 +151,6 @@ def to_excel_bytes(df):
     towrite = BytesIO()
     with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Sheet1")
-        writer.save()
     towrite.seek(0)
     return towrite
 
@@ -165,3 +164,4 @@ st.download_button(
 )
 
 st.success("Done — download the file above. If you need more advanced transformations (column splits, date parsing, lookups), tell me and I can extend the app.")
+
