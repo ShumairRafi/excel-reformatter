@@ -54,15 +54,25 @@ st.dataframe(df.head())
 # --- Get user input for the transformation
 st.subheader("Transformation Settings")
 
-# Get class names from the data if possible, otherwise allow manual input
-if 'Class' in df.columns:
-    existing_classes = df['Class'].unique().tolist()
+# Try to detect class column
+class_column_candidates = ['Class', 'Grade', 'Section', 'Class Name', 'Grade Level']
+class_column = None
+
+for candidate in class_column_candidates:
+    if candidate in df.columns:
+        class_column = candidate
+        break
+
+if class_column:
+    st.success(f"Detected class column: '{class_column}'")
+    existing_classes = df[class_column].unique().tolist()
     class_names = st.text_area(
-        "Enter class names (one per line)", 
-        value="\n".join(existing_classes),
-        help="Edit the class names if needed. One class per line."
+        "Class names found in your data (edit if needed)", 
+        value="\n".join([str(cls) for cls in existing_classes]),
+        help="These are the class names detected in your data. Edit them if needed."
     )
 else:
+    st.warning("Could not detect a class column in your data.")
     class_names = st.text_area(
         "Enter class names (one per line)", 
         value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 07",
@@ -70,30 +80,6 @@ else:
     )
 
 class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
-
-# Get admission number ranges for each class
-st.subheader("Admission Number Ranges by Class")
-admission_ranges = {}
-
-for class_name in class_list:
-    col1, col2 = st.columns(2)
-    with col1:
-        min_admission = st.number_input(
-            f"Starting admission number for {class_name}", 
-            min_value=1, 
-            max_value=10000, 
-            value=276 if class_name == "GRADE 01" else 279,
-            key=f"min_{class_name}"
-        )
-    with col2:
-        max_admission = st.number_input(
-            f"Ending admission number for {class_name}", 
-            min_value=min_admission, 
-            max_value=10000, 
-            value=297 if class_name == "GRADE 01" else 294,
-            key=f"max_{class_name}"
-        )
-    admission_ranges[class_name] = (min_admission, max_admission)
 
 # Get working days
 working_days = st.number_input(
@@ -104,7 +90,7 @@ working_days = st.number_input(
 )
 
 # --- Process the real data
-def process_real_data(df, class_list, admission_ranges, working_days):
+def process_real_data(df, class_list, class_column, working_days):
     detailed_dfs = {}
     
     # Ensure we have the required columns
@@ -134,38 +120,69 @@ def process_real_data(df, class_list, admission_ranges, working_days):
     df['Working_Days'] = working_days
     df['Attendance %'] = (df['Present'] / working_days) * 100
     
-    # Filter students by admission number for each class
-    for class_name in class_list:
-        min_admission, max_admission = admission_ranges[class_name]
+    # If we have a class column, use it to filter students by class
+    if class_column:
+        # Map class names using fuzzy matching to handle variations
+        class_mapping = {}
+        for target_class in class_list:
+            # Find the best match in the actual class column
+            match = process.extractOne(target_class, df[class_column].unique(), scorer=fuzz.token_sort_ratio)
+            if match and match[1] > 70:  # If similarity score > 70%
+                class_mapping[match[0]] = target_class
         
-        # Filter students in this admission range
-        class_data = df[
-            (df['Admission No'] >= min_admission) & 
-            (df['Admission No'] <= max_admission)
-        ].copy()
+        # Apply class mapping
+        df['Class'] = df[class_column].map(class_mapping)
         
-        if class_data.empty:
-            st.warning(f"No students found in admission range {min_admission}-{max_admission} for class: {class_name}")
-            continue
+        # Filter for classes in our list
+        df = df[df['Class'].isin(class_list)]
+        
+        # Group by class
+        for class_name in class_list:
+            class_data = df[df['Class'] == class_name].copy()
             
-        # Add class information
-        class_data['Class'] = class_name
+            if class_data.empty:
+                st.warning(f"No students found for class: {class_name}")
+                continue
+                
+            # Select and order columns for output
+            output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
+                             'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
+            
+            # Keep only columns that exist in the dataframe
+            output_columns = [col for col in output_columns if col in class_data.columns]
+            class_data = class_data[output_columns]
+            
+            detailed_dfs[class_name] = class_data
+    else:
+        # Fallback: If no class column, use the class list as provided
+        st.warning("No class column detected. Using manual class assignment.")
         
-        # Select and order columns for output
-        output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
-                         'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
+        # Distribute students evenly among classes
+        students_per_class = len(df) // len(class_list)
+        remainder = len(df) % len(class_list)
         
-        # Keep only columns that exist in the dataframe
-        output_columns = [col for col in output_columns if col in class_data.columns]
-        class_data = class_data[output_columns]
-        
-        detailed_dfs[class_name] = class_data
+        start_idx = 0
+        for i, class_name in enumerate(class_list):
+            end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
+            class_data = df.iloc[start_idx:end_idx].copy()
+            class_data['Class'] = class_name
+            
+            # Select and order columns for output
+            output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
+                             'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
+            
+            # Keep only columns that exist in the dataframe
+            output_columns = [col for col in output_columns if col in class_data.columns]
+            class_data = class_data[output_columns]
+            
+            detailed_dfs[class_name] = class_data
+            start_idx = end_idx
     
     return detailed_dfs
 
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
-    detailed_dfs = process_real_data(df, class_list, admission_ranges, working_days)
+    detailed_dfs = process_real_data(df, class_list, class_column, working_days)
     
     if not detailed_dfs:
         st.error("No data was processed. Please check your input and try again.")
@@ -234,10 +251,9 @@ st.subheader("Instructions")
 st.markdown("""
 1. Upload your attendance summary Excel file
 2. The app will try to detect class names from your data, or you can enter them manually
-3. For each class, specify the range of admission numbers
-4. Set the total working days
-5. Click "Process Attendance Data"
-6. Review the preview and download the generated file
+3. Set the total working days
+4. Click "Process Attendance Data"
+5. Review the preview and download the generated file
 
 The app will create:
 - A summary sheet with class statistics
@@ -248,6 +264,7 @@ The app will create:
 - Student Name  
 - Present
 - Absent
+- Class (or similar column indicating student's class)
 
 If your columns have different names, the app will try to match them automatically.
 """)
