@@ -1,10 +1,12 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 from io import BytesIO
 from rapidfuzz import process, fuzz
 import re
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -228,6 +230,70 @@ def sort_class_names(class_names):
     
     return sorted(class_names, key=extract_number)
 
+# Function to style Excel worksheets
+def style_excel_sheet(worksheet, title):
+    # Define styles
+    header_font = Font(name='Aptos Display', size=14, bold=True, color='FFFFFF')
+    data_font = Font(name='Aptos Display', size=14)
+    header_fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
+    light_blue_fill = PatternFill(start_color='DDEBF7', end_color='DDEBF7', fill_type='solid')
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    center_alignment = Alignment(horizontal='center', vertical='center')
+    left_alignment = Alignment(horizontal='left', vertical='center')
+    
+    # Add title
+    worksheet.merge_cells('A1:I1')
+    title_cell = worksheet['A1']
+    title_cell.value = title
+    title_cell.font = Font(name='Aptos Display', size=16, bold=True)
+    title_cell.alignment = center_alignment
+    
+    # Style header row
+    for cell in worksheet[2]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = border
+        cell.alignment = center_alignment
+    
+    # Style data rows with alternating colors
+    for row in range(3, worksheet.max_row + 1):
+        for col in range(1, worksheet.max_column + 1):
+            cell = worksheet.cell(row=row, column=col)
+            cell.font = data_font
+            cell.border = border
+            
+            if col == 2:  # Student Name column
+                cell.alignment = left_alignment
+            else:
+                cell.alignment = center_alignment
+                
+            if row % 2 == 1:  # Alternate row colors
+                cell.fill = light_blue_fill
+    
+    # Adjust column widths
+    column_widths = {
+        'A': 12,  # Admission No
+        'B': 30,  # Student Name
+        'C': 12,  # Working_Days
+        'D': 10,  # Present
+        'E': 10,  # Absent
+        'F': 10,  # Late
+        'G': 12,  # Very_Late
+        'H': 15,  # Attendance %
+        'I': 12   # Class
+    }
+    
+    for col_letter, width in column_widths.items():
+        worksheet.column_dimensions[col_letter].width = width
+    
+    # Freeze the header row
+    worksheet.freeze_panes = 'A3'
+
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
     detailed_dfs = process_real_data(df, class_list, course_column, class_mapping, working_days)
@@ -283,6 +349,22 @@ if st.button("Process Attendance Data"):
                     # Shorten sheet name if too long for Excel
                     sheet_name = class_name[:31] if len(class_name) > 31 else class_name
                     detailed_dfs[class_name].to_excel(writer, index=False, sheet_name=sheet_name)
+        
+        # Apply styling to all sheets
+        workbook = writer.book
+        
+        # Style summary sheet
+        if "Class Summary" in workbook.sheetnames:
+            ws_summary = workbook["Class Summary"]
+            style_excel_sheet(ws_summary, "CLASS ATTENDANCE SUMMARY")
+        
+        # Style class sheets
+        for class_name in sorted_class_names:
+            if class_name in detailed_dfs:
+                sheet_name = class_name[:31] if len(class_name) > 31 else class_name
+                if sheet_name in workbook.sheetnames:
+                    ws_class = workbook[sheet_name]
+                    style_excel_sheet(ws_class, f"{class_name} ATTENDANCE REPORT")
         
         towrite.seek(0)
         return towrite
