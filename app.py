@@ -238,7 +238,7 @@ def sort_class_names(class_names):
     return sorted(class_names, key=extract_number)
 
 # Function to apply Excel styling
-def apply_excel_styling(worksheet, title):
+def apply_excel_styling(worksheet, title, is_summary=False):
     # Define styles
     header_font = Font(name='Aptos Display', size=12, bold=True)
     data_font = Font(name='Aptos Display', size=12)
@@ -267,45 +267,73 @@ def apply_excel_styling(worksheet, title):
             cell.font = data_font
             cell.border = thin_border
             
-            # Center align admission numbers (column 1), left align student names (column 2)
-            # Center align all other columns
-            if cell.column == 1:  # Admission No
-                cell.alignment = alignment_center
-            elif cell.column == 2:  # Student Name
-                cell.alignment = alignment_left
+            # For summary sheet, center align all columns except Class (column A)
+            if is_summary:
+                if cell.column != 1:  # Center all columns except Class (column A)
+                    cell.alignment = alignment_center
+                else:
+                    cell.alignment = alignment_left  # Left align Class column
             else:
-                cell.alignment = alignment_center
+                # For class sheets, use the original alignment
+                if cell.column == 1:  # Admission No
+                    cell.alignment = alignment_center
+                elif cell.column == 2:  # Student Name
+                    cell.alignment = alignment_left
+                else:
+                    cell.alignment = alignment_center
     
     # Adjust column widths
-    column_widths = {
-        'A': 12,  # Admission No
-        'B': 20,  # Student Name
-        'C': 12,  # Working Days
-        'D': 10,  # Present
-        'E': 10,  # Absent
-        'F': 10,  # Late
-        'G': 12,  # Very Late
-        'H': 15,  # Attendance %
-        'I': 12   # Class
-    }
+    if is_summary:
+        column_widths = {
+            'A': 15,  # Class
+            'B': 15,  # Total_Students
+            'C': 18,  # Total_Working_Days
+            'D': 12,  # Avg_Present
+            'E': 12,  # Avg_Absent
+            'F': 12,  # Avg_Late
+            'G': 15,  # Avg_Very_Late
+            'H': 20   # Avg_Attendance_Percentage
+        }
+    else:
+        column_widths = {
+            'A': 12,  # Admission No
+            'B': 20,  # Student Name
+            'C': 12,  # Working Days
+            'D': 10,  # Present
+            'E': 10,  # Absent
+            'F': 10,  # Late
+            'G': 12,  # Very Late
+            'H': 15,  # Attendance %
+            'I': 12   # Class
+        }
     
     for col, width in column_widths.items():
         worksheet.column_dimensions[col].width = width
     
     # Format percentage column
     for row in range(2, worksheet.max_row + 1):
-        cell = worksheet[f'H{row}']
+        if is_summary:
+            cell = worksheet[f'H{row}']
+        else:
+            cell = worksheet[f'H{row}']
         cell.number_format = '0.00'
     
     # Add title
     worksheet.insert_rows(1)
-    worksheet.merge_cells('A1:I1')
-    title_cell = worksheet['A1']
+    if is_summary:
+        worksheet.merge_cells('A1:H1')
+        title_cell = worksheet['A1']
+    else:
+        worksheet.merge_cells('A1:I1')
+        title_cell = worksheet['A1']
     title_cell.value = title
     title_cell.font = Font(name='Aptos Display', size=14, bold=True)
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     
     return worksheet
+
+# Apply styling to summary sheet
+ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
 
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
@@ -434,3 +462,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
