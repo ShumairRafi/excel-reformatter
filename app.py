@@ -141,6 +141,14 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
             column_mapping[req_col] = req_col
             st.warning(f"Could not find a matching column for '{req_col}'. Please ensure your data has this column.")
     
+    # Also try to map optional columns like Late and Very Late
+    optional_columns = ['Late', 'Very_Late', 'Very Late']
+    for opt_col in optional_columns:
+        match = process.extractOne(opt_col, available_columns, scorer=fuzz.token_sort_ratio)
+        if match and match[1] > 60:
+            column_mapping[opt_col] = match[0]
+            st.info(f"Mapped '{match[0]}' to '{opt_col}'")
+    
     # Rename columns for consistency
     df = df.rename(columns=column_mapping)
     
@@ -148,7 +156,11 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     if 'Late' not in df.columns:
         df['Late'] = 0
     if 'Very_Late' not in df.columns:
-        df['Very_Late'] = 0
+        # Also check for 'Very Late' with space
+        if 'Very Late' in df.columns:
+            df['Very_Late'] = df['Very Late']
+        else:
+            df['Very_Late'] = 0
     
     # Calculate attendance percentage
     df['Working_Days'] = working_days
