@@ -561,3 +561,14 @@ The app will create:
 If your columns have different names, the app will try to match them automatically.
 """)
 
+# Show Developer Message
+        st.info(
+            """
+            **Message from the Developer**
+            
+            Assalamu Alaikum Ustadh, I hope this application works as intended
+            If there are any issues, Please let me know!.
+            """
+        )
+
+
