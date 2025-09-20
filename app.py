@@ -75,14 +75,10 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
             'H': 20   # Avg_Attendance_Percentage
         }
     else:
-        # Calculate the optimal width for Student Name column based on the longest name
-        max_name_length = 35  # Default minimum width
-        if student_names and len(student_names) > 0:
-            max_name_length = max(len(str(name)) for name in student_names) + 2  # Add some padding
             
         column_widths = {
             'A': 15,  # Admission No
-            'B': max_name_length,  # Student Name (dynamic width)
+            'B': 35,  # Student Name
             'C': 12,  # Working Days
             'D': 10,  # Present
             'E': 10,  # Absent
@@ -466,6 +462,7 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
 
