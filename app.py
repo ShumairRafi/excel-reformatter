@@ -19,6 +19,101 @@ Upload your attendance summary Excel file and the app will generate detailed stu
 """
 )
 
+# Function to apply Excel styling
+def apply_excel_styling(worksheet, title, is_summary=False):
+    # Define styles
+    header_font = Font(name='Aptos Display', size=12, bold=True)
+    data_font = Font(name='Aptos Display', size=12)
+    header_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
+    alignment_center = Alignment(horizontal='center', vertical='center')
+    alignment_left = Alignment(horizontal='left', vertical='center')
+    
+    # Thin border
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Apply styles to header row
+    for cell in worksheet[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = alignment_center
+        cell.border = thin_border
+    
+    # Apply styles to data rows
+    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+        for cell in row:
+            cell.font = data_font
+            cell.border = thin_border
+            
+            # For summary sheet, center align all columns except Class (column A)
+            if is_summary:
+                if cell.column != 1:  # Center all columns except Class (column A)
+                    cell.alignment = alignment_center
+                else:
+                    cell.alignment = alignment_left  # Left align Class column
+            else:
+                # For class sheets, use the original alignment
+                if cell.column == 1:  # Admission No
+                    cell.alignment = alignment_center
+                elif cell.column == 2:  # Student Name
+                    cell.alignment = alignment_left
+                else:
+                    cell.alignment = alignment_center
+    
+    # Adjust column widths
+    if is_summary:
+        column_widths = {
+            'A': 15,  # Class
+            'B': 15,  # Total_Students
+            'C': 18,  # Total_Working_Days
+            'D': 12,  # Avg_Present
+            'E': 12,  # Avg_Absent
+            'F': 12,  # Avg_Late
+            'G': 15,  # Avg_Very_Late
+            'H': 20   # Avg_Attendance_Percentage
+        }
+    else:
+        column_widths = {
+            'A': 12,  # Admission No
+            'B': 20,  # Student Name
+            'C': 12,  # Working Days
+            'D': 10,  # Present
+            'E': 10,  # Absent
+            'F': 10,  # Late
+            'G': 12,  # Very Late
+            'H': 15,  # Attendance %
+            'I': 12   # Class
+        }
+    
+    for col, width in column_widths.items():
+        worksheet.column_dimensions[col].width = width
+    
+    # Format percentage column
+    for row in range(2, worksheet.max_row + 1):
+        if is_summary:
+            cell = worksheet[f'H{row}']
+        else:
+            cell = worksheet[f'H{row}']
+        cell.number_format = '0.00'
+    
+    # Add title
+    worksheet.insert_rows(1)
+    if is_summary:
+        worksheet.merge_cells('A1:H1')
+        title_cell = worksheet['A1']
+    else:
+        worksheet.merge_cells('A1:I1')
+        title_cell = worksheet['A1']
+    title_cell.value = title
+    title_cell.font = Font(name='Aptos Display', size=14, bold=True)
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    return worksheet
+
 # --- Upload files
 uploaded_file = st.file_uploader("Upload your attendance summary Excel file", type=["xls", "xlsx"])
 
@@ -237,103 +332,43 @@ def sort_class_names(class_names):
     
     return sorted(class_names, key=extract_number)
 
-# Function to apply Excel styling
-def apply_excel_styling(worksheet, title, is_summary=False):
-    # Define styles
-    header_font = Font(name='Aptos Display', size=12, bold=True)
-    data_font = Font(name='Aptos Display', size=12)
-    header_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
-    alignment_center = Alignment(horizontal='center', vertical='center')
-    alignment_left = Alignment(horizontal='left', vertical='center')
+# Function to create Excel file
+def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
+    # Create a workbook
+    wb = Workbook()
     
-    # Thin border
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-
+    # Remove default sheet
+    wb.remove(wb.active)
+    
+    # Add summary sheet
+    ws_summary = wb.create_sheet("Class Summary")
+    
+    # Write summary data
+    for r in dataframe_to_rows(summary_df, index=False, header=True):
+        ws_summary.append(r)
+    
     # Apply styling to summary sheet
     ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
     
-    # Apply styles to header row
-    for cell in worksheet[1]:
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = alignment_center
-        cell.border = thin_border
-    
-    # Apply styles to data rows
-    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
-        for cell in row:
-            cell.font = data_font
-            cell.border = thin_border
+    # Add class sheets
+    for class_name in sorted_class_names:
+        if class_name in detailed_dfs:
+            # Shorten sheet name if too long for Excel
+            sheet_name = class_name[:31] if len(class_name) > 31 else class_name
+            ws_class = wb.create_sheet(sheet_name)
             
-            # For summary sheet, center align all columns except Class (column A)
-            if is_summary:
-                if cell.column != 1:  # Center all columns except Class (column A)
-                    cell.alignment = alignment_center
-                else:
-                    cell.alignment = alignment_left  # Left align Class column
-            else:
-                # For class sheets, use the original alignment
-                if cell.column == 1:  # Admission No
-                    cell.alignment = alignment_center
-                elif cell.column == 2:  # Student Name
-                    cell.alignment = alignment_left
-                else:
-                    cell.alignment = alignment_center
+            # Write class data
+            for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
+                ws_class.append(r)
+            
+            # Apply styling to class sheet
+            ws_class = apply_excel_styling(ws_class, class_name, is_summary=False)
     
-    # Adjust column widths
-    if is_summary:
-        column_widths = {
-            'A': 15,  # Class
-            'B': 15,  # Total_Students
-            'C': 18,  # Total_Working_Days
-            'D': 12,  # Avg_Present
-            'E': 12,  # Avg_Absent
-            'F': 12,  # Avg_Late
-            'G': 15,  # Avg_Very_Late
-            'H': 20   # Avg_Attendance_Percentage
-        }
-    else:
-        column_widths = {
-            'A': 12,  # Admission No
-            'B': 20,  # Student Name
-            'C': 12,  # Working Days
-            'D': 10,  # Present
-            'E': 10,  # Absent
-            'F': 10,  # Late
-            'G': 12,  # Very Late
-            'H': 15,  # Attendance %
-            'I': 12   # Class
-        }
-    
-    for col, width in column_widths.items():
-        worksheet.column_dimensions[col].width = width
-    
-    # Format percentage column
-    for row in range(2, worksheet.max_row + 1):
-        if is_summary:
-            cell = worksheet[f'H{row}']
-        else:
-            cell = worksheet[f'H{row}']
-        cell.number_format = '0.00'
-    
-    # Add title
-    worksheet.insert_rows(1)
-    if is_summary:
-        worksheet.merge_cells('A1:H1')
-        title_cell = worksheet['A1']
-    else:
-        worksheet.merge_cells('A1:I1')
-        title_cell = worksheet['A1']
-    title_cell.value = title
-    title_cell.font = Font(name='Aptos Display', size=14, bold=True)
-    title_cell.alignment = Alignment(horizontal='center', vertical='center')
-    
-    return worksheet
+    # Save to bytes
+    towrite = BytesIO()
+    wb.save(towrite)
+    towrite.seek(0)
+    return towrite
 
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
@@ -387,43 +422,6 @@ if st.button("Process Attendance Data"):
         st.dataframe(detailed_dfs[selected_class])
     
     # --- Download button
-    def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
-        # Create a workbook
-        wb = Workbook()
-        
-        # Remove default sheet
-        wb.remove(wb.active)
-        
-        # Add summary sheet
-        ws_summary = wb.create_sheet("Class Summary")
-        
-        # Write summary data
-        for r in dataframe_to_rows(summary_df, index=False, header=True):
-            ws_summary.append(r)
-        
-        # Apply styling to summary sheet
-        ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY")
-        
-        # Add class sheets
-        for class_name in sorted_class_names:
-            if class_name in detailed_dfs:
-                # Shorten sheet name if too long for Excel
-                sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-                ws_class = wb.create_sheet(sheet_name)
-                
-                # Write class data
-                for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
-                    ws_class.append(r)
-                
-                # Apply styling to class sheet
-                ws_class = apply_excel_styling(ws_class, class_name)
-        
-        # Save to bytes
-        towrite = BytesIO()
-        wb.save(towrite)
-        towrite.seek(0)
-        return towrite
-    
     excel_bytes = to_excel_bytes(summary_df, detailed_dfs, sorted_class_names)
     
     st.download_button(
@@ -462,6 +460,3 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
-
-
-
