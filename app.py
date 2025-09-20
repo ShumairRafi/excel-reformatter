@@ -29,11 +29,11 @@ st.info(
             
 ✨ Assalamu Alaikum Warahmatullahi Wabarakatuh, Ustadh! ✨
 
-It is with great pleasure that I present this Attendance Data Transformer application, meticulously designed to simplify Ustadh's administrative tasks and enhance efficiency in managing student attendance records.
+It is with great pleasure that I present this Attendance Data Transformer application, hoping to simplify Ustadh's administrative tasks and enhance efficiency in managing student attendance records.
 
 Should Ustadh encounter any challenges or have suggestions for refinement, please know that Ustadh's guidance is deeply valued and will be gratefully received to further improve this tool.
 
-May this application bring barakah and ease to Ustadh's important work. Jazakumullah Khairan!
+I hope this application will help bring ease to Ustadh's important work. Jazakallah Khairan!
 """)
 
 # Function to apply Excel styling
@@ -574,5 +574,6 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
