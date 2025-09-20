@@ -536,6 +536,15 @@ if st.button("Process Attendance Data"):
 else:
     st.info("Click the button above to process your attendance data based on your settings.")
 
+# Show Developer Message
+st.info(
+"""
+**Message from the Developer**
+            
+Assalamu Alaikum Ustadh, I hope this application works as intended
+If there are any issues, Please let me know!.
+""")
+
 # --- Instructions
 st.markdown("---")
 st.subheader("Instructions")
@@ -561,14 +570,7 @@ The app will create:
 If your columns have different names, the app will try to match them automatically.
 """)
 
-# Show Developer Message
-        st.info(
-            """
-            **Message from the Developer**
-            
-            Assalamu Alaikum Ustadh, I hope this application works as intended
-            If there are any issues, Please let me know!.
-            """
-        )
+
+
 
 
