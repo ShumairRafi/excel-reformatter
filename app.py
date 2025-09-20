@@ -338,7 +338,7 @@ if st.button("Process Attendance Data"):
         st.dataframe(detailed_dfs[selected_class])
     
     # --- Download button
-    def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
+   def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
     # Create a new workbook
     wb = Workbook()
     
@@ -421,4 +421,5 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
