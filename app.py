@@ -76,7 +76,7 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
         }
     else:
         # Calculate the optimal width for Student Name column based on the longest name
-        max_name_length = 20  # Default minimum width
+        max_name_length = 25  # Default minimum width
         if student_names and len(student_names) > 0:
             max_name_length = max(len(str(name)) for name in student_names) + 2  # Add some padding
             
@@ -466,5 +466,6 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
