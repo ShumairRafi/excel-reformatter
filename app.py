@@ -197,15 +197,18 @@ def to_excel_bytes(df):
     towrite.seek(0)
     return towrite
 
-def to_multisheet_excel_bytes(df, grade_column):
+def to_multisheet_excel_bytes(df, df_new, grade_column):
     towrite = BytesIO()
     with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
         # First sheet with all data
         df.to_excel(writer, index=False, sheet_name="All Data")
         
-        # Sheets for each grade
-        for grade in df[grade_column].dropna().unique():
-            grade_df = df[df[grade_column] == grade]
+        # Sheets for each grade - use the original df_new to get grade information
+        for grade in df_new[grade_column].dropna().unique():
+            # Get indices of rows with this grade in the original dataframe
+            grade_indices = df_new[df_new[grade_column] == grade].index
+            # Filter the reformatted dataframe using these indices
+            grade_df = df.loc[grade_indices]
             sheet_name = f"Grade {grade}" if len(str(grade)) < 20 else f"Grade_{hash(grade)}"
             grade_df.to_excel(writer, index=False, sheet_name=sheet_name[:31])  # Excel sheet name limit
     
@@ -213,7 +216,7 @@ def to_multisheet_excel_bytes(df, grade_column):
     return towrite
 
 if process_multisheet and grade_columns:
-    excel_bytes = to_multisheet_excel_bytes(reformatted_df, grade_column)
+    excel_bytes = to_multisheet_excel_bytes(reformatted_df, df_new, grade_column)
     file_name = "reformatted_multisheet.xlsx"
 else:
     excel_bytes = to_excel_bytes(reformatted_df)
