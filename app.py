@@ -253,6 +253,9 @@ def apply_excel_styling(worksheet, title, is_summary=False):
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
+
+    # Apply styling to summary sheet
+    ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
     
     # Apply styles to header row
     for cell in worksheet[1]:
@@ -459,5 +462,6 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
