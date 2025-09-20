@@ -128,7 +128,8 @@ working_days = st.number_input(
     "Total working days", 
     min_value=1, 
     max_value=365, 
-    value=82
+    value=82,
+    help="Enter the total number of working days for the period"
 )
 
 # --- Process the real data
@@ -307,6 +308,11 @@ def apply_excel_styling(worksheet, title):
 
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
+    # Check if working days is provided
+    if working_days is None or working_days <= 0:
+        st.error("Please enter a valid number of working days (minimum 1)")
+        st.stop()
+    
     detailed_dfs = process_real_data(df, class_list, course_column, class_mapping, working_days)
     
     if not detailed_dfs:
@@ -406,7 +412,7 @@ st.markdown("""
 1. Upload your attendance summary Excel file
 2. The app will detect the 'course_name' column and show you the unique values
 3. Map each course name to a standardized class name (e.g., "7th Year" → "GRADE 07")
-4. Set the total working days
+4. **Set the total working days** (this is required before processing)
 5. Click "Process Attendance Data"
 6. Review the preview and download the generated file
 
