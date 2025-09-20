@@ -91,12 +91,16 @@ if course_column:
     }
     
     for course in unique_courses:
-        # Try to find a default mapping
-        default_class = None
-        for key, value in default_classes.items():
-            if key in str(course):
-                default_class = value
-                break
+        # Handle NaN values
+        if pd.isna(course):
+            default_class = "UNASSIGNED"
+        else:
+            # Try to find a default mapping
+            default_class = None
+            for key, value in default_classes.items():
+                if key in str(course):
+                    default_class = value
+                    break
         
         # Let user confirm or change the mapping
         mapped_class = st.text_input(
@@ -261,8 +265,11 @@ def apply_excel_styling(worksheet, title):
             cell.font = data_font
             cell.border = thin_border
             
-            # Left align text columns, center align numeric columns
-            if cell.column in [1, 2]:  # Admission No and Student Name
+            # Center align admission numbers (column 1), left align student names (column 2)
+            # Center align all other columns
+            if cell.column == 1:  # Admission No
+                cell.alignment = alignment_center
+            elif cell.column == 2:  # Student Name
                 cell.alignment = alignment_left
             else:
                 cell.alignment = alignment_center
