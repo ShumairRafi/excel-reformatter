@@ -1,13 +1,10 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 from io import BytesIO
 from rapidfuzz import process, fuzz
 import re
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
-from openpyxl.utils import get_column_letter
-from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -15,7 +12,7 @@ st.title("Attendance Data Transformer")
 st.markdown(
     """
 This app transforms your attendance summary data into detailed student attendance records.
-Upload your attendance summary Excel file and the app will generate detailed student records.
+Upload your attendance summary file and the app will generate detailed student records.
 """
 )
 
@@ -231,64 +228,6 @@ def sort_class_names(class_names):
     
     return sorted(class_names, key=extract_number)
 
-# Function to style Excel worksheets (black and white version)
-def style_excel_sheet(worksheet, title):
-    # Define styles
-    header_font = Font(name='Arial', size=12, bold=True)
-    data_font = Font(name='Arial', size=11)
-    border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-    center_alignment = Alignment(horizontal='center', vertical='center')
-    left_alignment = Alignment(horizontal='left', vertical='center')
-    
-    # Add title
-    worksheet.merge_cells('A1:I1')
-    title_cell = worksheet['A1']
-    title_cell.value = title
-    title_cell.font = Font(name='Arial', size=14, bold=True)
-    title_cell.alignment = center_alignment
-    
-    # Style header row
-    for cell in worksheet[2]:
-        cell.font = header_font
-        cell.border = border
-        cell.alignment = center_alignment
-    
-    # Style data rows
-    for row in range(3, worksheet.max_row + 1):
-        for col in range(1, worksheet.max_column + 1):
-            cell = worksheet.cell(row=row, column=col)
-            cell.font = data_font
-            cell.border = border
-            
-            if col == 2:  # Student Name column
-                cell.alignment = left_alignment
-            else:
-                cell.alignment = center_alignment
-    
-    # Adjust column widths
-    column_widths = {
-        'A': 12,  # Admission No
-        'B': 30,  # Student Name
-        'C': 12,  # Working_Days
-        'D': 10,  # Present
-        'E': 10,  # Absent
-        'F': 10,  # Late
-        'G': 12,  # Very_Late
-        'H': 15,  # Attendance %
-        'I': 12   # Class
-    }
-    
-    for col_letter, width in column_widths.items():
-        worksheet.column_dimensions[col_letter].width = width
-    
-    # Freeze the header row
-    worksheet.freeze_panes = 'A3'
-
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
     detailed_dfs = process_real_data(df, class_list, course_column, class_mapping, working_days)
@@ -333,40 +272,18 @@ if st.button("Process Attendance Data"):
     
     # --- Download button
     def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
-        # Create a new workbook
-        wb = Workbook()
-        
-        # Remove the default sheet
-        if 'Sheet' in wb.sheetnames:
-            wb.remove(wb['Sheet'])
-        
-        # Create summary sheet
-        ws_summary = wb.create_sheet("Class Summary")
-        
-        # Write summary data
-        for r in dataframe_to_rows(summary_df, index=False, header=True):
-            ws_summary.append(r)
-        
-        # Style summary sheet
-        style_excel_sheet(ws_summary, "CLASS ATTENDANCE SUMMARY")
-        
-        # Create class sheets
-        for class_name in sorted_class_names:
-            if class_name in detailed_dfs:
-                # Shorten sheet name if too long for Excel
-                sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-                ws_class = wb.create_sheet(sheet_name)
-                
-                # Write class data
-                for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
-                    ws_class.append(r)
-                
-                # Style class sheet
-                style_excel_sheet(ws_class, f"{class_name} ATTENDANCE REPORT")
-        
-        # Save to BytesIO
         towrite = BytesIO()
-        wb.save(towrite)
+        with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
+            # Write summary sheet first
+            summary_df.to_excel(writer, index=False, sheet_name="Class Summary")
+            
+            # Write class sheets in sorted order
+            for class_name in sorted_class_names:
+                if class_name in detailed_dfs:
+                    # Shorten sheet name if too long for Excel
+                    sheet_name = class_name[:31] if len(class_name) > 31 else class_name
+                    detailed_dfs[class_name].to_excel(writer, index=False, sheet_name=sheet_name)
+        
         towrite.seek(0)
         return towrite
     
