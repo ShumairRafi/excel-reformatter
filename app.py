@@ -8,6 +8,9 @@ import re
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
+import tempfile
+from fpdf import FPDF
+import base64
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -112,6 +115,96 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     
     return worksheet
+    
+#pdf generate button
+def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
+    """Generate a PDF version of the attendance report"""
+    
+    # Create PDF object
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Add a page for the summary
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "ATTENDANCE SUMMARY", 0, 1, 'C')
+    pdf.ln(10)
+    
+    # Add summary table
+    pdf.set_font("Arial", 'B', 12)
+    columns = list(summary_df.columns)
+    
+    # Set column widths
+    col_widths = [40, 30, 35, 25, 25, 25, 25, 40]
+    
+    # Add header
+    for i, column in enumerate(columns):
+        pdf.cell(col_widths[i], 10, column, 1, 0, 'C')
+    pdf.ln()
+    
+    # Add data rows
+    pdf.set_font("Arial", '', 10)
+    for _, row in summary_df.iterrows():
+        for i, column in enumerate(columns):
+            value = str(row[column])
+            pdf.cell(col_widths[i], 10, value, 1, 0, 'C')
+        pdf.ln()
+    
+    # Add detailed class reports
+    for class_name in sorted_class_names:
+        if class_name in detailed_dfs:
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(0, 10, f"CLASS: {class_name}", 0, 1, 'C')
+            pdf.ln(10)
+            
+            df_detail = detailed_dfs[class_name]
+            columns = list(df_detail.columns)
+            
+            # Set column widths for detail table
+            detail_col_widths = [30, 60, 25, 20, 20, 20, 25, 25, 20]
+            
+            # Add header
+            pdf.set_font("Arial", 'B', 10)
+            for i, column in enumerate(columns):
+                pdf.cell(detail_col_widths[i], 10, column, 1, 0, 'C')
+            pdf.ln()
+            
+            # Add data rows
+            pdf.set_font("Arial", '', 8)
+            for _, row in df_detail.iterrows():
+                for i, column in enumerate(columns):
+                    value = str(row[column])
+                    pdf.cell(detail_col_widths[i], 10, value, 1, 0, 'C')
+                pdf.ln()
+    
+    # Save to bytes buffer
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return pdf_bytes
+
+# In your processing section, after the Excel download button, add:
+if detailed_dfs:
+    # Create two columns for the download buttons
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.download_button(
+            label="Download Detailed Attendance Report (Excel)",
+            data=excel_bytes,
+            file_name="detailed_attendance_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    
+    with col2:
+        # Generate PDF report
+        pdf_bytes = generate_pdf_report(summary_df, detailed_dfs, sorted_class_names)
+        
+        st.download_button(
+            label="Download Attendance Report (PDF)",
+            data=pdf_bytes,
+            file_name="attendance_report.pdf",
+            mime="application/pdf"
+        )
 
 # --- Upload files
 uploaded_file = st.file_uploader("Upload your attendance summary Excel file", type=["xls", "xlsx"])
@@ -462,3 +555,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
