@@ -20,7 +20,7 @@ Upload your attendance summary Excel file and the app will generate detailed stu
 )
 
 # Function to apply Excel styling
-def apply_excel_styling(worksheet, title, is_summary=False):
+def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
     # Define styles
     header_font = Font(name='Aptos Display', size=12, bold=True)
     data_font = Font(name='Aptos Display', size=12)
@@ -77,9 +77,14 @@ def apply_excel_styling(worksheet, title, is_summary=False):
             'H': 20   # Avg_Attendance_Percentage
         }
     else:
+        # Calculate the optimal width for Student Name column based on the longest name
+        max_name_length = 20  # Default minimum width
+        if student_names and len(student_names) > 0:
+            max_name_length = max(len(str(name)) for name in student_names) + 2  # Add some padding
+            
         column_widths = {
             'A': 12,  # Admission No
-            'B': 20,  # Student Name
+            'B': max_name_length,  # Student Name (dynamic width)
             'C': 12,  # Working Days
             'D': 10,  # Present
             'E': 10,  # Absent
@@ -361,8 +366,11 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
                 ws_class.append(r)
             
+            # Get student names for this class to calculate optimal column width
+            student_names = detailed_dfs[class_name]['Student Name'].tolist() if 'Student Name' in detailed_dfs[class_name].columns else []
+            
             # Apply styling to class sheet
-            ws_class = apply_excel_styling(ws_class, class_name, is_summary=False)
+            ws_class = apply_excel_styling(ws_class, class_name, is_summary=False, student_names=student_names)
     
     # Save to bytes
     towrite = BytesIO()
@@ -460,3 +468,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
