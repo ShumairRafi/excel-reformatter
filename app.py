@@ -24,20 +24,20 @@ Upload your attendance summary Excel file and the app will generate detailed stu
 
 # Show Developer Message
 st.markdown("""
-<div style="background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%); padding: 25px; border-radius: 12px; border-left: 6px solid #4CAF50; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
-    <h3 style="color: #2E86C1; margin-top: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+<div style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); padding: 25px; border-radius: 12px; border-left: 6px solid #4CAF50; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+    <h3 style="color: #ecf0f1; margin-top: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
         ✨ Assalamu Alaikum Warahmatullahi Wabarakatuh, Ustadh! ✨
     </h3>
-    <p style="color: #2C3E50; font-size: 16px; line-height: 1.6;">
+    <p style="color: #bdc3c7; font-size: 16px; line-height: 1.6;">
         It is with great pleasure that I present this Attendance Data Transformer application, 
         meticulously designed to simplify Ustadh's administrative tasks and enhance efficiency 
         in managing student attendance records.
     </p>
-    <p style="color: #2C3E50; font-size: 16px; line-height: 1.6;">
+    <p style="color: #bdc3c7; font-size: 16px; line-height: 1.6;">
         Should Ustadh encounter any challenges or have suggestions for refinement, please know that 
         Ustadh's guidance is deeply valued and will be gratefully received to further improve this tool.
     </p>
-    <p style="color: #2C3E50; font-weight: bold; font-size: 16px; font-style: italic; text-align: center; margin-top: 20px;">
+    <p style="color: #ecf0f1; font-weight: bold; font-size: 16px; font-style: italic; text-align: center; margin-top: 20px;">
         May this application bring barakah and ease to Ustadh's important work. Jazakumullah Khairan!
     </p>
 </div>
@@ -581,3 +581,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
