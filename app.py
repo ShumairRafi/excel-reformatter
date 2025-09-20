@@ -67,7 +67,7 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
         column_widths = {
             'A': 15,  # Class
             'B': 20,  # Total_Students
-            'C': 25,  # Total_Working_Days
+            'C': 20,  # Total_Working_Days
             'D': 15,  # Avg_Present
             'E': 15,  # Avg_Absent
             'F': 15,  # Avg_Late
@@ -462,6 +462,7 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
 
