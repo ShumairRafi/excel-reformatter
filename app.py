@@ -49,12 +49,10 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
             cell.font = data_font
             cell.border = thin_border
             
-            # For summary sheet, center align all columns except Class (column A)
+            # For summary sheet, alignment
             if is_summary:
-                if cell.column != 1:  # Center all columns except Class (column A)
                     cell.alignment = alignment_center
-                else:
-                    cell.alignment = alignment_left  # Left align Class column
+            
             else:
                 # For class sheets, use the original alignment
                 if cell.column == 1:  # Admission No
@@ -468,4 +466,5 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
