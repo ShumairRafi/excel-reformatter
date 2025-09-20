@@ -175,11 +175,15 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         # Apply class mapping
         df['Class'] = df[course_column].map(class_mapping)
         
-        # Filter for classes in our list
-        df = df[df['Class'].isin(class_list)]
+        # Handle NaN values in Class column by replacing with 'UNASSIGNED'
+        df['Class'] = df['Class'].fillna('UNASSIGNED')
+        
+        # Filter for classes in our list plus UNASSIGNED
+        valid_classes = set(class_list) | {'UNASSIGNED'}
+        df = df[df['Class'].isin(valid_classes)]
         
         # Group by class
-        for class_name in class_list:
+        for class_name in valid_classes:
             class_data = df[df['Class'] == class_name].copy()
             
             if class_data.empty:
@@ -229,7 +233,11 @@ def sort_class_names(class_names):
         numbers = re.findall(r'\d+', name)
         return int(numbers[0]) if numbers else float('inf')
     
-    return sorted(class_names, key=extract_number)
+    # Put UNASSIGNED at the end
+    unassigned = [name for name in class_names if name == 'UNASSIGNED']
+    others = [name for name in class_names if name != 'UNASSIGNED']
+    
+    return sorted(others, key=extract_number) + unassigned
 
 # Function to apply Excel styling
 def apply_excel_styling(worksheet, title):
@@ -261,8 +269,8 @@ def apply_excel_styling(worksheet, title):
             cell.font = data_font
             cell.border = thin_border
             
-            # Left align text columns, center align numeric columns
-            if cell.column in [1, 2]:  # Admission No and Student Name
+            # Center align all columns except Student Name
+            if cell.column == 2:  # Student Name column
                 cell.alignment = alignment_left
             else:
                 cell.alignment = alignment_center
