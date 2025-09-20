@@ -6,7 +6,7 @@ from rapidfuzz import process, fuzz
 import re
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
-from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -338,34 +338,40 @@ if st.button("Process Attendance Data"):
     
     # --- Download button
     def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
-        towrite = BytesIO()
-        with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
-            # Write summary sheet first
-            summary_df.to_excel(writer, index=False, sheet_name="Class Summary")
-            
-            # Write class sheets in sorted order
-            for class_name in sorted_class_names:
-                if class_name in detailed_dfs:
-                    # Shorten sheet name if too long for Excel
-                    sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-                    detailed_dfs[class_name].to_excel(writer, index=False, sheet_name=sheet_name)
+        # Create a new workbook
+        wb = Workbook()
         
-        # Apply styling to all sheets
-        workbook = writer.book
+        # Remove the default sheet
+        if 'Sheet' in wb.sheetnames:
+            wb.remove(wb['Sheet'])
+        
+        # Create summary sheet
+        ws_summary = wb.create_sheet("Class Summary")
+        
+        # Write summary data
+        for r in dataframe_to_rows(summary_df, index=False, header=True):
+            ws_summary.append(r)
         
         # Style summary sheet
-        if "Class Summary" in workbook.sheetnames:
-            ws_summary = workbook["Class Summary"]
-            style_excel_sheet(ws_summary, "CLASS ATTENDANCE SUMMARY")
+        style_excel_sheet(ws_summary, "CLASS ATTENDANCE SUMMARY")
         
-        # Style class sheets
+        # Create class sheets
         for class_name in sorted_class_names:
             if class_name in detailed_dfs:
+                # Shorten sheet name if too long for Excel
                 sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-                if sheet_name in workbook.sheetnames:
-                    ws_class = workbook[sheet_name]
-                    style_excel_sheet(ws_class, f"{class_name} ATTENDANCE REPORT")
+                ws_class = wb.create_sheet(sheet_name)
+                
+                # Write class data
+                for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
+                    ws_class.append(r)
+                
+                # Style class sheet
+                style_excel_sheet(ws_class, f"{class_name} ATTENDANCE REPORT")
         
+        # Save to BytesIO
+        towrite = BytesIO()
+        wb.save(towrite)
         towrite.seek(0)
         return towrite
     
