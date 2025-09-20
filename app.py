@@ -515,10 +515,10 @@ if st.button("Process Attendance Data"):
             """
             **PDF Export Notice**
             
-            The PDF export feature is currently in development. 
+            The PDF export feature is currently under development. 
             Some formatting issues may still be present.
             
-            For the best experience, we recommend using the Excel download option.
+            For the best experience, I recommend that Ustadh may use the Excel download option.
             """
         )
         
@@ -560,3 +560,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
