@@ -7,32 +7,20 @@ from rapidfuzz import process, fuzz
 
 st.set_page_config(page_title="Excel Reformatter", layout="wide")
 
-st.title("Excel Reformatter — Map New Data to Old File Format")
+st.title("Excel Reformatter — Multi-Sheet Attendance Formatting")
 st.markdown(
     """
-Upload your **old Excel file** (the file whose format you want to match) and your **new Excel file** (data to be reformatted). 
-The app will suggest column mappings and let you adjust them before exporting a reformatted Excel file.
+Upload your **old Excel file** (with multiple sheets for each grade) and your **new Excel file** (single sheet with all data). 
+The app will separate the data by grade and reformat it to match your old file's structure.
 """
 )
-
-# --- Sidebar: options
-with st.sidebar:
-    st.header("Options")
-    fuzz_threshold = st.slider(
-        "Auto-mapping similarity threshold", 0, 100, 70,
-        help="Minimum similarity (0-100) for a suggested automatic match. Lower = more aggressive matching."
-    )
-    sheet_old = st.text_input("Old file sheet name (leave blank = first sheet)", value="")
-    sheet_new = st.text_input("New file sheet name (leave blank = first sheet)", value="")
-    preserve_old_index = st.checkbox("Preserve old file's index structure", value=False)
-    case_sensitive = st.checkbox("Case-sensitive matching", value=False)
 
 # --- Upload files
 col1, col2 = st.columns(2)
 with col1:
-    old_file = st.file_uploader("Upload OLD Excel file (target format)", type=["xls", "xlsx"], key="old")
+    old_file = st.file_uploader("Upload OLD Excel file (multi-sheet format)", type=["xls", "xlsx"], key="old")
 with col2:
-    new_file = st.file_uploader("Upload NEW Excel file (data to convert)", type=["xls", "xlsx"], key="new")
+    new_file = st.file_uploader("Upload NEW Excel file (single sheet data)", type=["xls", "xlsx"], key="new")
 
 if not (old_file and new_file):
     st.info("Upload both the old file (format) and the new file (data) to continue.")
@@ -40,14 +28,22 @@ if not (old_file and new_file):
 
 # --- Read files
 @st.cache_data(ttl=600)
-def read_excel(file, sheet_name_hint):
+def read_excel_sheets(file):
+    try:
+        xl = pd.ExcelFile(file)
+        return {sheet_name: pd.read_excel(file, sheet_name=sheet_name) for sheet_name in xl.sheet_names}
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        return None
+
+@st.cache_data(ttl=600)
+def read_excel_single(file, sheet_name_hint=""):
     try:
         if sheet_name_hint:
             return pd.read_excel(file, sheet_name=sheet_name_hint, engine="openpyxl")
         else:
             return pd.read_excel(file, engine="openpyxl")
     except Exception as e:
-        # If sheet_name hint fails, try default
         try:
             return pd.read_excel(file, engine="openpyxl")
         except Exception as e2:
@@ -55,39 +51,43 @@ def read_excel(file, sheet_name_hint):
             return None
 
 try:
-    df_old = read_excel(old_file, sheet_old)
-    df_new = read_excel(new_file, sheet_new)
+    # Read all sheets from old file
+    old_sheets = read_excel_sheets(old_file)
     
-    if df_old is None or df_new is None:
-        st.error("Could not read one of the uploaded Excel files. Please check the sheet names.")
+    # Read new file (single sheet)
+    df_new = read_excel_single(new_file)
+    
+    if old_sheets is None or df_new is None:
+        st.error("Could not read one of the uploaded Excel files.")
         st.stop()
         
 except Exception as e:
     st.error(f"Could not read one of the uploaded Excel files: {e}")
     st.stop()
 
-# Store original dtypes from old file to preserve them
-old_dtypes = df_old.dtypes.to_dict()
+# Show available sheets in old file
+st.subheader("Sheets in old file")
+st.write(list(old_sheets.keys()))
+
+# Let user select which sheet to use as reference format
+ref_sheet = st.selectbox("Select reference sheet to use as format template", options=list(old_sheets.keys()))
+df_old = old_sheets[ref_sheet]
 
 st.subheader("Preview — columns")
 
 c1, c2 = st.columns(2)
 with c1:
-    st.write("Old file (target format) — first 5 rows")
+    st.write(f"Old file - {ref_sheet} sheet (first 5 rows)")
     st.dataframe(df_old.head())
-    st.write(f"Old file shape: {df_old.shape}")
+    st.write(f"Shape: {df_old.shape}")
 with c2:
-    st.write("New file (incoming data) — first 5 rows")
+    st.write("New file (first 5 rows)")
     st.dataframe(df_new.head())
-    st.write(f"New file shape: {df_new.shape}")
+    st.write(f"Shape: {df_new.shape}")
 
 # Prepare column lists
 old_cols = list(df_old.columns.astype(str))
 new_cols = list(df_new.columns.astype(str))
-
-if not case_sensitive:
-    old_cols_lower = [col.lower() for col in old_cols]
-    new_cols_lower = [col.lower() for col in new_cols]
 
 # --- Automatic mapping using fuzzy matching
 st.subheader("Column mapping")
@@ -95,25 +95,15 @@ st.write("Below are suggestions. Adjust any mapping using the dropdowns. If a co
 
 # Build suggestions
 suggestions = {}
-for i, oc in enumerate(old_cols):
-    if case_sensitive:
-        search_space = new_cols
-        target_col = oc
-    else:
-        search_space = new_cols_lower
-        target_col = oc.lower()
-    
+for oc in old_cols:
     # use rapidfuzz to find best match among new_cols
-    match = process.extractOne(target_col, search_space, scorer=fuzz.token_sort_ratio)
+    match = process.extractOne(oc, new_cols, scorer=fuzz.token_sort_ratio)
     if match:
         matched_col, score, _ = match
-        if not case_sensitive:
-            # Get the original case version of the matched column
-            matched_col = new_cols[new_cols_lower.index(matched_col)]
     else:
         matched_col, score = None, 0
         
-    if score >= fuzz_threshold:
+    if score >= 70:  # Fixed threshold for simplicity
         suggestions[oc] = (matched_col, score)
     else:
         suggestions[oc] = (None, score)
@@ -138,7 +128,7 @@ for oc in old_cols:
         label, 
         options=cols_for_select, 
         index=default_index, 
-        key=f"map_{hash(oc)}"  # More unique key
+        key=f"map_{hash(oc)}"
     )
     mapping[oc] = None if choice == "-- (blank)" else choice
 
@@ -156,69 +146,48 @@ if conflicts:
         st.write(f"Source column `{src}` → target columns: {', '.join('`'+t+'`' for t in tcols)}")
 
 # --- Build the reformatted DataFrame
-def build_reformatted(df_new, mapping, old_cols, old_dtypes):
+def build_reformatted(df_new, mapping, old_cols):
     out_df = pd.DataFrame()
     
     for oc in old_cols:
         src = mapping.get(oc)
         
         if src is None:
-            # fill with blank / NaN but preserve original dtype if possible
-            out_df[oc] = pd.Series(dtype=old_dtypes.get(oc, object))
+            # fill with blank / NaN
+            out_df[oc] = pd.NA
         else:
             # if src exists in df_new, copy; else blank
             if src in df_new.columns:
                 out_df[oc] = df_new[src]
-                
-                # Try to convert to original dtype if possible
-                try:
-                    if old_dtypes[oc] != out_df[oc].dtype:
-                        out_df[oc] = out_df[oc].astype(old_dtypes[oc])
-                except (ValueError, TypeError):
-                    # If conversion fails, keep as is
-                    pass
             else:
-                out_df[oc] = pd.Series(dtype=old_dtypes.get(oc, object))
+                out_df[oc] = pd.NA
     
     return out_df
 
-reformatted_df = build_reformatted(df_new, mapping, old_cols, old_dtypes)
+reformatted_df = build_reformatted(df_new, mapping, old_cols)
 
 st.subheader("Reformatted preview (first 10 rows)")
 st.dataframe(reformatted_df.head(10))
 st.write(f"Reformatted shape: {reformatted_df.shape}")
 
-# --- Post-processing options
-st.markdown("### Post-processing (optional)")
-st.write("You can do basic cleaning here. For more advanced transforms, download and modify manually.")
+# --- Multi-sheet processing for attendance data
+st.markdown("### Multi-sheet Processing")
+st.write("Your old file has multiple sheets for different grades. Would you like to split the new data by grade?")
 
-col1, col2 = st.columns(2)
-with col1:
-    do_dropna = st.checkbox("Drop rows where all values are blank", value=False)
-    strip_whitespace = st.checkbox("Strip whitespace from text columns", value=True)
-with col2:
-    reset_index = st.checkbox("Reset index to match old file", value=True)
-    fill_na = st.selectbox("Fill NaN values with", ["", "0", "Empty string", "Previous value"])
+# Try to detect grade information in the new data
+grade_columns = [col for col in df_new.columns if any(term in str(col).lower() for term in ['grade', 'class', 'batch', 'course'])]
 
-if do_dropna:
-    reformatted_df = reformatted_df.dropna(how='all')
-
-if strip_whitespace:
-    # Strip whitespace from string columns
-    string_cols = reformatted_df.select_dtypes(include=['object']).columns
-    for col in string_cols:
-        reformatted_df[col] = reformatted_df[col].str.strip()
-
-if reset_index and preserve_old_index:
-    reformatted_df.index = df_old.index[:len(reformatted_df)]
-
-if fill_na:
-    if fill_na == "0":
-        reformatted_df = reformatted_df.fillna(0)
-    elif fill_na == "Empty string":
-        reformatted_df = reformatted_df.fillna("")
-    elif fill_na == "Previous value":
-        reformatted_df = reformatted_df.fillna(method='ffill')
+if grade_columns:
+    grade_column = st.selectbox("Select column containing grade/class information", options=grade_columns)
+    
+    # Get unique grades/classes
+    unique_grades = df_new[grade_column].dropna().unique()
+    st.write(f"Found {len(unique_grades)} unique grades/classes: {unique_grades}")
+    
+    process_multisheet = st.checkbox("Process as multi-sheet Excel file", value=True)
+else:
+    st.info("No obvious grade/class column found in the new data.")
+    process_multisheet = False
 
 # --- Download button
 def to_excel_bytes(df):
@@ -228,12 +197,32 @@ def to_excel_bytes(df):
     towrite.seek(0)
     return towrite
 
-excel_bytes = to_excel_bytes(reformatted_df)
+def to_multisheet_excel_bytes(df, grade_column):
+    towrite = BytesIO()
+    with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
+        # First sheet with all data
+        df.to_excel(writer, index=False, sheet_name="All Data")
+        
+        # Sheets for each grade
+        for grade in df[grade_column].dropna().unique():
+            grade_df = df[df[grade_column] == grade]
+            sheet_name = f"Grade {grade}" if len(str(grade)) < 20 else f"Grade_{hash(grade)}"
+            grade_df.to_excel(writer, index=False, sheet_name=sheet_name[:31])  # Excel sheet name limit
+    
+    towrite.seek(0)
+    return towrite
+
+if process_multisheet and grade_columns:
+    excel_bytes = to_multisheet_excel_bytes(reformatted_df, grade_column)
+    file_name = "reformatted_multisheet.xlsx"
+else:
+    excel_bytes = to_excel_bytes(reformatted_df)
+    file_name = "reformatted.xlsx"
 
 st.download_button(
     label="Download reformatted Excel",
     data=excel_bytes,
-    file_name="reformatted.xlsx",
+    file_name=file_name,
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
