@@ -22,6 +22,15 @@ Upload your attendance summary Excel file and the app will generate detailed stu
 """
 )
 
+# Show Developer Message
+st.info(
+"""
+**Message from the Developer**
+            
+Assalamu Alaikum Ustadh, I hope this application works as intended
+If there are any issues, Please let me know!.
+""")
+
 # Function to apply Excel styling
 def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
     # Define styles
@@ -536,15 +545,6 @@ if st.button("Process Attendance Data"):
 else:
     st.info("Click the button above to process your attendance data based on your settings.")
 
-# Show Developer Message
-st.info(
-"""
-**Message from the Developer**
-            
-Assalamu Alaikum Ustadh, I hope this application works as intended
-If there are any issues, Please let me know!.
-""")
-
 # --- Instructions
 st.markdown("---")
 st.subheader("Instructions")
@@ -569,6 +569,7 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
 
