@@ -123,13 +123,14 @@ else:
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
 
-# Get working days with default value of 0
+# Get working days with default value as None
 working_days = st.number_input(
     "Total working days*", 
     min_value=1, 
     max_value=365, 
-    value=0,
-    help="Enter the total number of working days for the period. This field is required."
+    value=None,
+    help="Enter the total number of working days for the period. This field is required.",
+    placeholder="Enter a number between 1 and 365"
 )
 
 # --- Process the real data
@@ -309,6 +310,10 @@ def apply_excel_styling(worksheet, title):
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
     # Check if working days is provided and valid
+    if working_days is None:
+        st.error("Please enter the total number of working days.")
+        st.stop()
+    
     if working_days <= 0:
         st.error("Please enter a valid number of working days (minimum 1)")
         st.stop()
