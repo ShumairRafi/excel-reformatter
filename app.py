@@ -54,32 +54,66 @@ st.dataframe(df.head())
 # --- Get user input for the transformation
 st.subheader("Transformation Settings")
 
-# Try to detect class column
-class_column_candidates = ['Class', 'Grade', 'Section', 'Class Name', 'Grade Level']
-class_column = None
+# Try to detect course_name column
+course_column_candidates = ['course_name', 'Course Name', 'Class', 'Grade', 'Section']
+course_column = None
 
-for candidate in class_column_candidates:
+for candidate in course_column_candidates:
     if candidate in df.columns:
-        class_column = candidate
+        course_column = candidate
         break
 
-if class_column:
-    st.success(f"Detected class column: '{class_column}'")
-    existing_classes = df[class_column].unique().tolist()
-    class_names = st.text_area(
-        "Class names found in your data (edit if needed)", 
-        value="\n".join([str(cls) for cls in existing_classes]),
-        help="These are the class names detected in your data. Edit them if needed."
-    )
+if course_column:
+    st.success(f"Detected course/class column: '{course_column}'")
+    
+    # Show unique values in the course column
+    unique_courses = df[course_column].unique().tolist()
+    st.write(f"Found {len(unique_courses)} unique course/class values:")
+    st.write(unique_courses)
+    
+    # Create mapping from course names to standardized class names
+    st.subheader("Course to Class Mapping")
+    st.write("Please map each course name to a standardized class name:")
+    
+    class_mapping = {}
+    default_classes = {
+        "7th Year": "GRADE 07",
+        "6th Year": "GRADE 06", 
+        "5th Year": "GRADE 05",
+        "4th Year": "GRADE 04",
+        "3rd Year": "GRADE 03",
+        "2nd Year": "GRADE 02",
+        "1st Year": "GRADE 01"
+    }
+    
+    for course in unique_courses:
+        # Try to find a default mapping
+        default_class = None
+        for key, value in default_classes.items():
+            if key in str(course):
+                default_class = value
+                break
+        
+        # Let user confirm or change the mapping
+        mapped_class = st.text_input(
+            f"Map '{course}' to class:", 
+            value=default_class if default_class else f"GRADE {course}",
+            key=f"map_{course}"
+        )
+        class_mapping[course] = mapped_class.strip()
+    
+    # Get the list of classes from the mapping
+    class_list = list(set(class_mapping.values()))
+    
 else:
-    st.warning("Could not detect a class column in your data.")
+    st.warning("Could not detect a course/class column in your data.")
     class_names = st.text_area(
         "Enter class names (one per line)", 
-        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 07",
+        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 06\nGRADE 07",
         help="Enter the class names that should appear in the output. One class per line."
     )
-
-class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
+    class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
+    class_mapping = {}
 
 # Get working days
 working_days = st.number_input(
@@ -90,7 +124,7 @@ working_days = st.number_input(
 )
 
 # --- Process the real data
-def process_real_data(df, class_list, class_column, working_days):
+def process_real_data(df, class_list, course_column, class_mapping, working_days):
     detailed_dfs = {}
     
     # Ensure we have the required columns
@@ -120,18 +154,10 @@ def process_real_data(df, class_list, class_column, working_days):
     df['Working_Days'] = working_days
     df['Attendance %'] = (df['Present'] / working_days) * 100
     
-    # If we have a class column, use it to filter students by class
-    if class_column:
-        # Map class names using fuzzy matching to handle variations
-        class_mapping = {}
-        for target_class in class_list:
-            # Find the best match in the actual class column
-            match = process.extractOne(target_class, df[class_column].unique(), scorer=fuzz.token_sort_ratio)
-            if match and match[1] > 70:  # If similarity score > 70%
-                class_mapping[match[0]] = target_class
-        
+    # If we have a course column, use it to map to classes
+    if course_column and class_mapping:
         # Apply class mapping
-        df['Class'] = df[class_column].map(class_mapping)
+        df['Class'] = df[course_column].map(class_mapping)
         
         # Filter for classes in our list
         df = df[df['Class'].isin(class_list)]
@@ -154,8 +180,8 @@ def process_real_data(df, class_list, class_column, working_days):
             
             detailed_dfs[class_name] = class_data
     else:
-        # Fallback: If no class column, use the class list as provided
-        st.warning("No class column detected. Using manual class assignment.")
+        # Fallback: If no course column, use the class list as provided
+        st.warning("No course column detected. Using manual class assignment.")
         
         # Distribute students evenly among classes
         students_per_class = len(df) // len(class_list)
@@ -182,7 +208,7 @@ def process_real_data(df, class_list, class_column, working_days):
 
 # --- Generate the detailed data
 if st.button("Process Attendance Data"):
-    detailed_dfs = process_real_data(df, class_list, class_column, working_days)
+    detailed_dfs = process_real_data(df, class_list, course_column, class_mapping, working_days)
     
     if not detailed_dfs:
         st.error("No data was processed. Please check your input and try again.")
@@ -250,10 +276,11 @@ st.markdown("---")
 st.subheader("Instructions")
 st.markdown("""
 1. Upload your attendance summary Excel file
-2. The app will try to detect class names from your data, or you can enter them manually
-3. Set the total working days
-4. Click "Process Attendance Data"
-5. Review the preview and download the generated file
+2. The app will detect the 'course_name' column and show you the unique values
+3. Map each course name to a standardized class name (e.g., "7th Year" → "GRADE 07")
+4. Set the total working days
+5. Click "Process Attendance Data"
+6. Review the preview and download the generated file
 
 The app will create:
 - A summary sheet with class statistics
@@ -264,7 +291,7 @@ The app will create:
 - Student Name  
 - Present
 - Absent
-- Class (or similar column indicating student's class)
+- course_name (or similar column indicating student's course/class)
 
 If your columns have different names, the app will try to match them automatically.
 """)
