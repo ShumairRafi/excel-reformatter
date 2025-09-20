@@ -24,18 +24,21 @@ Upload your attendance summary Excel file and the app will generate detailed stu
 
 # Show Developer Message
 st.markdown("""
-<div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border-left: 5px solid #4CAF50;">
-    <h3 style="color: #2E86C1; margin-top: 0;">Assalamu Alaikum Ustadh! 🌟</h3>
-    <p style="color: #2C3E50; font-size: 16px;">
-        This Attendance Data Transformer application has been prepared for Ustadh's convenience. 
-        May it serve Ustadh's needs effectively and simplify the attendance management process.
+<div style="background: linear-gradient(135deg, #f0f8ff 0%, #e6f7ff 100%); padding: 25px; border-radius: 12px; border-left: 6px solid #4CAF50; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+    <h3 style="color: #2E86C1; margin-top: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        ✨ Assalamu Alaikum Warahmatullahi Wabarakatuh, Ustadh! ✨
+    </h3>
+    <p style="color: #2C3E50; font-size: 16px; line-height: 1.6;">
+        It is with great pleasure that I present this Attendance Data Transformer application, 
+        meticulously designed to simplify Ustadh's administrative tasks and enhance efficiency 
+        in managing student attendance records.
     </p>
-    <p style="color: #2C3E50; font-size: 16px;">
-        Should Ustadh encounter any issues or have suggestions for improvement, please know that 
-        Ustadh's feedback is highly valued and will help enhance this tool.
+    <p style="color: #2C3E50; font-size: 16px; line-height: 1.6;">
+        Should Ustadh encounter any challenges or have suggestions for refinement, please know that 
+        Ustadh's guidance is deeply valued and will be gratefully received to further improve this tool.
     </p>
-    <p style="color: #2C3E50; font-weight: bold; font-size: 16px;">
-        May this application bring convenience and efficiency to Ustadh's work. Barakallahu Feek!
+    <p style="color: #2C3E50; font-weight: bold; font-size: 16px; font-style: italic; text-align: center; margin-top: 20px;">
+        May this application bring barakah and ease to Ustadh's important work. Jazakumullah Khairan!
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -578,10 +581,3 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
-
-
-
-
-
-
-
