@@ -11,7 +11,7 @@ st.title("Attendance Data Transformer")
 st.markdown(
     """
 This app transforms your attendance summary data into detailed student attendance records.
-Upload your summary file and the app will generate detailed student records.
+Upload your attendance summary file and the app will generate detailed student records.
 """
 )
 
@@ -54,26 +54,22 @@ st.dataframe(df.head())
 # --- Get user input for the transformation
 st.subheader("Transformation Settings")
 
-# Get class names
-class_names = st.text_area(
-    "Enter class names (one per line)", 
-    value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 07",
-    help="Enter the class names that should appear in the output. One class per line."
-)
+# Get class names from the data if possible, otherwise allow manual input
+if 'Class' in df.columns:
+    existing_classes = df['Class'].unique().tolist()
+    class_names = st.text_area(
+        "Enter class names (one per line)", 
+        value="\n".join(existing_classes),
+        help="Edit the class names if needed. One class per line."
+    )
+else:
+    class_names = st.text_area(
+        "Enter class names (one per line)", 
+        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 07",
+        help="Enter the class names that should appear in the output. One class per line."
+    )
 
 class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
-
-# Get number of students per class
-students_per_class = {}
-st.write("Enter number of students for each class:")
-for class_name in class_list:
-    students_per_class[class_name] = st.number_input(
-        f"Number of students in {class_name}", 
-        min_value=1, 
-        max_value=100, 
-        value=22 if class_name == "GRADE 01" else 16 if class_name == "GRADE 02" else 8,
-        key=f"students_{class_name}"
-    )
 
 # Get working days
 working_days = st.number_input(
@@ -83,87 +79,69 @@ working_days = st.number_input(
     value=82
 )
 
-# --- Generate sample student data
-def generate_student_data(class_name, num_students, working_days):
-    """
-    Robust generation of student attendance rows.
-    Ensures valid integer bounds for numpy randint to avoid ValueError.
-    """
-    students = []
-    
-    # Sample names for demonstration - cycles if more students than names
-    sample_names = [
-        "Huzaifa usama", "Mohamed Ramzeen Thahir", "Muhammad Rafi Muhammad Shumair",
-        "Muhammad Shifas Muhammadh", "Abdullah Dilshard", "Arham Aasif", "Mohamed Bilaal",
-        "Mohammed Aakif Mohammed Ameer", "Ahmed Fairooz", "Muhammed Khalid",
-        "Mohamad Faraj Mohamad Firnas", "Atheequr Rahman", "Aabidh Zackey", "Yasir Faleel",
-        "Mahamath Yusuf Cassim", "Mohammadh Rifai Abdur Rahman", "Muhammad Fiaz",
-        "Muhammed Arham Imran Haladeen", "Abdullah Firdous", "Abdur Rahman Fazme",
-        "Saadh Firdous", "Yusuf Iqbal"
-    ]
-    
-    # admission base (example logic)
-    base_admission = 276 if class_name == "GRADE 01" else 279
-    
-    for i in range(num_students):
-        admission_no = base_admission + i
-        # cycle sample names (so we never index out of range)
-        student_name = sample_names[i % len(sample_names)]
-        
-        # --- Robust random generation ---
-        # present: between 40% and 90% of working days (inclusive), but in integer bounds
-        present_min = int(np.floor(working_days * 0.4))
-        present_max = int(np.ceil(working_days * 0.9))
-        # clamp
-        present_min = max(0, present_min)
-        present_max = min(working_days, present_max)
-        if present_max <= present_min:
-            present = present_min
-        else:
-            # randint high is exclusive, so add +1 to make upper bound inclusive
-            present = np.random.randint(present_min, present_max + 1)
-        
-        # absent as complement
-        absent = working_days - present
-        
-        # late: up to 60% of present (inclusive). Make bounds integer and safe.
-        late_max = int(np.floor(present * 0.6))
-        if late_max <= 0:
-            late = 0
-        else:
-            late = np.random.randint(0, late_max + 1)
-        
-        # very_late: up to 30% of late (inclusive)
-        very_late_max = int(np.floor(late * 0.3))
-        if very_late_max <= 0:
-            very_late = 0
-        else:
-            very_late = np.random.randint(0, very_late_max + 1)
-        
-        # Calculate attendance percentage
-        attendance_pct = (present / working_days) * 100 if working_days > 0 else 0.0
-        
-        students.append({
-            "Admission No": admission_no,
-            "Student Name": student_name,
-            "Working_Days": working_days,
-            "Present": int(present),
-            "Absent": int(absent),
-            "Late": int(late),
-            "Very_Late": int(very_late),
-            "Attendance %": round(attendance_pct, 2),
-            "Class": class_name
-        })
-    
-    return pd.DataFrame(students)
-
-# --- Generate the detailed data
-if st.button("Generate Detailed Student Records"):
+# --- Process the real data
+def process_real_data(df, class_list, working_days):
     detailed_dfs = {}
     
     for class_name in class_list:
-        num_students = students_per_class[class_name]
-        detailed_dfs[class_name] = generate_student_data(class_name, num_students, working_days)
+        # Filter data for the current class
+        if 'Class' in df.columns:
+            class_data = df[df['Class'] == class_name].copy()
+        else:
+            # If no Class column, assume all data is for this class
+            class_data = df.copy()
+        
+        if class_data.empty:
+            st.warning(f"No data found for class: {class_name}")
+            continue
+            
+        # Ensure we have the required columns
+        required_columns = ['Admission No', 'Student Name', 'Present', 'Absent']
+        available_columns = class_data.columns.tolist()
+        
+        # Try to map existing columns to required columns using fuzzy matching
+        column_mapping = {}
+        for req_col in required_columns:
+            match = process.extractOne(req_col, available_columns, scorer=fuzz.token_sort_ratio)
+            if match and match[1] > 60:  # If similarity score > 60%
+                column_mapping[req_col] = match[0]
+            else:
+                column_mapping[req_col] = req_col
+                st.warning(f"Could not find a matching column for '{req_col}'. Please ensure your data has this column.")
+        
+        # Rename columns for consistency
+        class_data = class_data.rename(columns=column_mapping)
+        
+        # Add missing columns with default values
+        if 'Late' not in class_data.columns:
+            class_data['Late'] = 0
+        if 'Very_Late' not in class_data.columns:
+            class_data['Very_Late'] = 0
+        
+        # Calculate attendance percentage
+        class_data['Working_Days'] = working_days
+        class_data['Attendance %'] = (class_data['Present'] / working_days) * 100
+        class_data['Class'] = class_name
+        
+        # Select and order columns for output
+        output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
+                         'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
+        
+        # Keep only columns that exist in the dataframe
+        output_columns = [col for col in output_columns if col in class_data.columns]
+        class_data = class_data[output_columns]
+        
+        detailed_dfs[class_name] = class_data
+    
+    return detailed_dfs
+
+# --- Generate the detailed data
+if st.button("Process Attendance Data"):
+    detailed_dfs = process_real_data(df, class_list, working_days)
+    
+    if not detailed_dfs:
+        st.error("No data was processed. Please check your input and try again.")
+        st.stop()
     
     # Create a summary sheet
     summary_data = []
@@ -182,7 +160,7 @@ if st.button("Generate Detailed Student Records"):
     summary_df = pd.DataFrame(summary_data)
     
     # --- Display preview
-    st.subheader("Preview of Generated Data")
+    st.subheader("Preview of Processed Data")
     
     tab1, tab2 = st.tabs(["Summary", "Detailed View"])
     
@@ -191,7 +169,7 @@ if st.button("Generate Detailed Student Records"):
         st.dataframe(summary_df)
     
     with tab2:
-        selected_class = st.selectbox("Select class to view details", options=class_list)
+        selected_class = st.selectbox("Select class to view details", options=list(detailed_dfs.keys()))
         st.dataframe(detailed_dfs[selected_class])
     
     # --- Download button
@@ -217,26 +195,30 @@ if st.button("Generate Detailed Student Records"):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     
-    st.success("Detailed attendance report generated successfully! Download the file above.")
+    st.success("Attendance data processed successfully! Download the file above.")
 
 else:
-    st.info("Click the button above to generate detailed student records based on your settings.")
+    st.info("Click the button above to process your attendance data based on your settings.")
 
 # --- Instructions
 st.markdown("---")
 st.subheader("Instructions")
 st.markdown("""
 1. Upload your attendance summary Excel file
-2. Enter the class names (one per line)
-3. Specify the number of students in each class
-4. Set the total working days
-5. Click "Generate Detailed Student Records"
-6. Review the preview and download the generated file
+2. The app will try to detect class names from your data, or you can enter them manually
+3. Set the total working days
+4. Click "Process Attendance Data"
+5. Review the preview and download the generated file
 
 The app will create:
 - A summary sheet with class statistics
 - Separate sheets for each class with detailed student attendance records
-- Realistic sample data for demonstration purposes
 
-Note: In a real application, you would replace the sample data with your actual student database.
+**Note:** Your data should include at least these columns (or similar):
+- Admission No
+- Student Name  
+- Present
+- Absent
+
+If your columns have different names, the app will try to match them automatically.
 """)
