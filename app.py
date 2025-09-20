@@ -231,13 +231,11 @@ def sort_class_names(class_names):
     
     return sorted(class_names, key=extract_number)
 
-# Function to style Excel worksheets
+# Function to style Excel worksheets (black and white version)
 def style_excel_sheet(worksheet, title):
     # Define styles
-    header_font = Font(name='Aptos Display', size=14, bold=True, color='FFFFFF')
-    data_font = Font(name='Aptos Display', size=14)
-    header_fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
-    light_blue_fill = PatternFill(start_color='DDEBF7', end_color='DDEBF7', fill_type='solid')
+    header_font = Font(name='Arial', size=12, bold=True)
+    data_font = Font(name='Arial', size=11)
     border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
@@ -251,17 +249,16 @@ def style_excel_sheet(worksheet, title):
     worksheet.merge_cells('A1:I1')
     title_cell = worksheet['A1']
     title_cell.value = title
-    title_cell.font = Font(name='Aptos Display', size=16, bold=True)
+    title_cell.font = Font(name='Arial', size=14, bold=True)
     title_cell.alignment = center_alignment
     
     # Style header row
     for cell in worksheet[2]:
         cell.font = header_font
-        cell.fill = header_fill
         cell.border = border
         cell.alignment = center_alignment
     
-    # Style data rows with alternating colors
+    # Style data rows
     for row in range(3, worksheet.max_row + 1):
         for col in range(1, worksheet.max_column + 1):
             cell = worksheet.cell(row=row, column=col)
@@ -272,9 +269,6 @@ def style_excel_sheet(worksheet, title):
                 cell.alignment = left_alignment
             else:
                 cell.alignment = center_alignment
-                
-            if row % 2 == 1:  # Alternate row colors
-                cell.fill = light_blue_fill
     
     # Adjust column widths
     column_widths = {
