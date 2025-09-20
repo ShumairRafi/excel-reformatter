@@ -85,9 +85,13 @@ working_days = st.number_input(
 
 # --- Generate sample student data
 def generate_student_data(class_name, num_students, working_days):
+    """
+    Robust generation of student attendance rows.
+    Ensures valid integer bounds for numpy randint to avoid ValueError.
+    """
     students = []
     
-    # Sample names for demonstration - in a real app, you might want to import a list of names
+    # Sample names for demonstration - cycles if more students than names
     sample_names = [
         "Huzaifa usama", "Mohamed Ramzeen Thahir", "Muhammad Rafi Muhammad Shumair",
         "Muhammad Shifas Muhammadh", "Abdullah Dilshard", "Arham Aasif", "Mohamed Bilaal",
@@ -98,30 +102,55 @@ def generate_student_data(class_name, num_students, working_days):
         "Saadh Firdous", "Yusuf Iqbal"
     ]
     
-    # Generate admission numbers starting from a base
+    # admission base (example logic)
     base_admission = 276 if class_name == "GRADE 01" else 279
     
     for i in range(num_students):
         admission_no = base_admission + i
-        student_name = sample_names[i % len(sample_names)] if i < len(sample_names) else f"Student {i+1}"
+        # cycle sample names (so we never index out of range)
+        student_name = sample_names[i % len(sample_names)]
         
-        # Generate realistic attendance data
-        present = np.random.randint(working_days * 0.4, working_days * 0.9)
+        # --- Robust random generation ---
+        # present: between 40% and 90% of working days (inclusive), but in integer bounds
+        present_min = int(np.floor(working_days * 0.4))
+        present_max = int(np.ceil(working_days * 0.9))
+        # clamp
+        present_min = max(0, present_min)
+        present_max = min(working_days, present_max)
+        if present_max <= present_min:
+            present = present_min
+        else:
+            # randint high is exclusive, so add +1 to make upper bound inclusive
+            present = np.random.randint(present_min, present_max + 1)
+        
+        # absent as complement
         absent = working_days - present
-        late = np.random.randint(0, present * 0.6)
-        very_late = np.random.randint(0, late * 0.3)
+        
+        # late: up to 60% of present (inclusive). Make bounds integer and safe.
+        late_max = int(np.floor(present * 0.6))
+        if late_max <= 0:
+            late = 0
+        else:
+            late = np.random.randint(0, late_max + 1)
+        
+        # very_late: up to 30% of late (inclusive)
+        very_late_max = int(np.floor(late * 0.3))
+        if very_late_max <= 0:
+            very_late = 0
+        else:
+            very_late = np.random.randint(0, very_late_max + 1)
         
         # Calculate attendance percentage
-        attendance_pct = (present / working_days) * 100
+        attendance_pct = (present / working_days) * 100 if working_days > 0 else 0.0
         
         students.append({
             "Admission No": admission_no,
             "Student Name": student_name,
             "Working_Days": working_days,
-            "Present": present,
-            "Absent": absent,
-            "Late": late,
-            "Very_Late": very_late,
+            "Present": int(present),
+            "Absent": int(absent),
+            "Late": int(late),
+            "Very_Late": int(very_late),
             "Attendance %": round(attendance_pct, 2),
             "Class": class_name
         })
