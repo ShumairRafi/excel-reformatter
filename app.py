@@ -510,14 +510,28 @@ if st.button("Process Attendance Data"):
         # Generate PDF report
         pdf_bytes = generate_pdf_report(summary_df, detailed_dfs, sorted_class_names)
         
+        # Show info message about PDF being in development
+        st.info(
+            """
+            **PDF Export Notice**
+            
+            The PDF export feature is currently in development. 
+            Some formatting issues may still be present.
+            
+            For the best experience, we recommend using the Excel download option.
+            """
+        )
+        
+        # Enabled PDF download button
         st.download_button(
             label="Download Attendance Report (PDF)",
             data=pdf_bytes,
             file_name="attendance_report.pdf",
-            mime="application/pdf"
+            mime="application/pdf",
+            help="PDF export is still under development. Formatting may not be perfect."
         )
     
-    st.success("Attendance data processed successfully! Download the file above.")
+    st.success("Attendance data processed successfully! Download the files above.")
 
 else:
     st.info("Click the button above to process your attendance data based on your settings.")
