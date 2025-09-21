@@ -49,10 +49,6 @@ if 'working_days' not in st.session_state:
     st.session_state.working_days = None
 if 'file_uploader_key' not in st.session_state:
     st.session_state.file_uploader_key = 0
-if 'selected_tab' not in st.session_state:
-    st.session_state.selected_tab = "Summary"
-if 'selected_class' not in st.session_state:
-    st.session_state.selected_class = None
 
 # Function to reset the application
 def reset_application():
@@ -62,14 +58,12 @@ def reset_application():
     st.session_state.sorted_class_names = []
     st.session_state.working_days = None
     st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
-    st.session_state.selected_tab = "Summary"
-    st.session_state.selected_class = None
 
 # Function to apply Excel styling
 def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
     # Define styles
     header_font = Font(name='Aptos Display', size=12, bold=True)
-    data_font = Font(name='Aptos display', size=12)
+    data_font = Font(name='Aptos Display', size=12)
     header_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
     alignment_center = Alignment(horizontal='center', vertical='center')
     alignment_left = Alignment(horizontal='left', vertical='center')
@@ -375,7 +369,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
+            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -536,16 +530,12 @@ if process_button:
     st.session_state.summary_df = summary_df
     st.session_state.detailed_dfs = detailed_dfs
     st.session_state.sorted_class_names = sorted_class_names
-    # Set default selected class
-    if st.session_state.sorted_class_names:
-        st.session_state.selected_class = st.session_state.sorted_class_names[0]
 
 # Show results if data has been processed
 if st.session_state.processed:
     # --- Display preview
     st.subheader("Preview of Processed Data")
     
-    # Create tabs
     tab1, tab2 = st.tabs(["Summary", "Detailed View"])
     
     with tab1:
@@ -553,17 +543,7 @@ if st.session_state.processed:
         st.dataframe(st.session_state.summary_df)
     
     with tab2:
-        # Update selected class when user changes selection
-        selected_class = st.selectbox(
-            "Select class to view details", 
-            options=st.session_state.sorted_class_names,
-            index=st.session_state.sorted_class_names.index(st.session_state.selected_class) if st.session_state.selected_class in st.session_state.sorted_class_names else 0,
-            key="class_selector"
-        )
-        
-        # Update session state with the selected class
-        st.session_state.selected_class = selected_class
-        
+        selected_class = st.selectbox("Select class to view details", options=st.session_state.sorted_class_names)
         st.dataframe(st.session_state.detailed_dfs[selected_class])
     
     # --- Download buttons
@@ -625,7 +605,7 @@ st.markdown("""
 4. **Set the total working days** (this field is required and must be greater than 0)
 5. Click "Process Attendance Data"
 6. Review the preview and download the generated file
-7. Use the "Add a new file" button to start over with a different file
+7. Use the "Add a new file" button to reset the application and upload a different file
 
 The app will create:
 - A summary sheet with class statistics
