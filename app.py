@@ -228,12 +228,6 @@ uploaded_file = st.file_uploader(
 
 if not uploaded_file:
     st.info("Upload your attendance summary file to continue.")
-    
-    # Add a reset button even when no file is uploaded
-    if st.button("Add a new file", key="reset_no_file"):
-        reset_application()
-        st.rerun()
-    
     st.stop()
 
 # --- Read file
@@ -375,7 +369,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create(sheet_name)
+            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -592,15 +586,14 @@ if st.session_state.processed:
         )
     
     st.success("Attendance data processed successfully! Download the files above.")
-
-elif not process_button:
-    st.info("Click the button above to process your attendance data based on your settings.")
-
-# --- Add a button to reset the application and upload a new file
-if st.session_state.processed or uploaded_file:
+    
+    # --- Add a button to reset the application and upload a new file
     if st.button("Add a new file", key="reset_button"):
         reset_application()
         st.rerun()
+
+elif not process_button:
+    st.info("Click the button above to process your attendance data based on your settings.")
 
 # --- Instructions
 st.markdown("---")
@@ -612,7 +605,7 @@ st.markdown("""
 4. **Set the total working days** (this field is required and must be greater than 0)
 5. Click "Process Attendance Data"
 6. Review the preview and download the generated file
-7. Use the "Add a new file" button to start over with a new file
+7. Use the "Add a new file" button to reset the application and upload a different file
 
 The app will create:
 - A summary sheet with class statistics
