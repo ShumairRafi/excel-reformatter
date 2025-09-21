@@ -47,6 +47,17 @@ if 'sorted_class_names' not in st.session_state:
     st.session_state.sorted_class_names = []
 if 'working_days' not in st.session_state:
     st.session_state.working_days = None
+if 'file_uploader_key' not in st.session_state:
+    st.session_state.file_uploader_key = 0
+
+# Function to reset the application
+def reset_application():
+    st.session_state.processed = False
+    st.session_state.summary_df = None
+    st.session_state.detailed_dfs = {}
+    st.session_state.sorted_class_names = []
+    st.session_state.working_days = None
+    st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
 
 # Function to apply Excel styling
 def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
@@ -209,10 +220,20 @@ def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
     return pdf_bytes
 
 # --- Upload files
-uploaded_file = st.file_uploader("Upload your attendance summary Excel file", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader(
+    "Upload your attendance summary Excel file", 
+    type=["xls", "xlsx"],
+    key=f"file_uploader_{st.session_state.file_uploader_key}"
+)
 
 if not uploaded_file:
     st.info("Upload your attendance summary file to continue.")
+    
+    # Add a reset button even when no file is uploaded
+    if st.button("Add a new file", key="reset_no_file"):
+        reset_application()
+        st.rerun()
+    
     st.stop()
 
 # --- Read file
@@ -354,7 +375,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
+            ws_class = wb.create(sheet_name)
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -575,6 +596,12 @@ if st.session_state.processed:
 elif not process_button:
     st.info("Click the button above to process your attendance data based on your settings.")
 
+# --- Add a button to reset the application and upload a new file
+if st.session_state.processed or uploaded_file:
+    if st.button("Add a new file", key="reset_button"):
+        reset_application()
+        st.rerun()
+
 # --- Instructions
 st.markdown("---")
 st.subheader("Instructions")
@@ -585,6 +612,7 @@ st.markdown("""
 4. **Set the total working days** (this field is required and must be greater than 0)
 5. Click "Process Attendance Data"
 6. Review the preview and download the generated file
+7. Use the "Add a new file" button to start over with a new file
 
 The app will create:
 - A summary sheet with class statistics
