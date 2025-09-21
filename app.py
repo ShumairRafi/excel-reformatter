@@ -29,12 +29,24 @@ st.info(
             
 ✨ Assalamu Alaikum Warahmatullahi Wabarakatuh, Ustadh! ✨
 
-It is with great pleasure that I present this Attendance Data Transformer application, hoping to simplify Ustadh's administrative tasks and enhance efficiency in managing student attendance records.
+It is with great pleasure that I present this Attendance Data Transformer application, hoping to simplify Ustadh's administrative tasks and bring efficiency in managing student attendance records.
 
 Should Ustadh encounter any challenges or have suggestions for refinement, please know that Ustadh's guidance is deeply valued and will be gratefully received to further improve this tool.
 
 I hope this application will help bring ease to Ustadh's important work. Jazakallah Khairan!
 """)
+
+# Initialize session state variables
+if 'processed' not in st.session_state:
+    st.session_state.processed = False
+if 'summary_df' not in st.session_state:
+    st.session_state.summary_df = None
+if 'detailed_dfs' not in st.session_state:
+    st.session_state.detailed_dfs = {}
+if 'sorted_class_names' not in st.session_state:
+    st.session_state.sorted_class_names = []
+if 'working_days' not in st.session_state:
+    st.session_state.working_days = None
 
 # Function to apply Excel styling
 def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
@@ -305,7 +317,7 @@ working_days = st.number_input(
     "Total working days*", 
     min_value=1, 
     max_value=365, 
-    value=None,
+    value=st.session_state.working_days,
     help="Enter the total number of working days for the period. This field is required.",
     placeholder="Enter a number between 1 and 365"
 )
@@ -456,7 +468,9 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     return detailed_dfs
 
 # --- Generate the detailed data
-if st.button("Process Attendance Data"):
+process_button = st.button("Process Attendance Data")
+
+if process_button:
     # Check if working days is provided and valid
     if working_days is None:
         st.error("Please enter the total number of working days.")
@@ -465,6 +479,9 @@ if st.button("Process Attendance Data"):
     if working_days <= 0:
         st.error("Please enter a valid number of working days (minimum 1)")
         st.stop()
+    
+    # Store working days in session state
+    st.session_state.working_days = working_days
     
     detailed_dfs = process_real_data(df, class_list, course_column, class_mapping, working_days)
     
@@ -493,6 +510,14 @@ if st.button("Process Attendance Data"):
     
     summary_df = pd.DataFrame(summary_data)
     
+    # Store results in session state
+    st.session_state.processed = True
+    st.session_state.summary_df = summary_df
+    st.session_state.detailed_dfs = detailed_dfs
+    st.session_state.sorted_class_names = sorted_class_names
+
+# Show results if data has been processed
+if st.session_state.processed:
     # --- Display preview
     st.subheader("Preview of Processed Data")
     
@@ -500,14 +525,14 @@ if st.button("Process Attendance Data"):
     
     with tab1:
         st.write("Class Summary")
-        st.dataframe(summary_df)
+        st.dataframe(st.session_state.summary_df)
     
     with tab2:
-        selected_class = st.selectbox("Select class to view details", options=sorted_class_names)
-        st.dataframe(detailed_dfs[selected_class])
+        selected_class = st.selectbox("Select class to view details", options=st.session_state.sorted_class_names)
+        st.dataframe(st.session_state.detailed_dfs[selected_class])
     
     # --- Download buttons
-    excel_bytes = to_excel_bytes(summary_df, detailed_dfs, sorted_class_names)
+    excel_bytes = to_excel_bytes(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names)
     
     # Create two columns for the download buttons
     col1, col2 = st.columns(2)
@@ -522,7 +547,7 @@ if st.button("Process Attendance Data"):
     
     with col2:
         # Generate PDF report
-        pdf_bytes = generate_pdf_report(summary_df, detailed_dfs, sorted_class_names)
+        pdf_bytes = generate_pdf_report(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names)
         
         # Show info message about PDF being in development
         st.info(
@@ -547,7 +572,7 @@ if st.button("Process Attendance Data"):
     
     st.success("Attendance data processed successfully! Download the files above.")
 
-else:
+elif not process_button:
     st.info("Click the button above to process your attendance data based on your settings.")
 
 # --- Instructions
