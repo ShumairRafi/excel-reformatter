@@ -279,40 +279,40 @@ if course_column:
     st.write(f"Found {len(unique_courses)} unique course/class values:")
     st.write(unique_courses)
     
-# Create mapping from course names to standardized class names
-st.subheader("Course to Class Mapping")
-st.write("Please map each course name to a standardized class name:")
-
-class_mapping = {}
-default_classes = {
-    "7th Year": "GRADE 07",
-    "6th Year": "GRADE 06", 
-    "5th Year": "GRADE 05",
-    "4th Year": "GRADE 04",
-    "3rd Year": "GRADE 03",
-    "2nd Year": "GRADE 02",
-    "1st Year": "GRADE 01"
-}
-
-for course in unique_courses:
-    # Handle NaN values
-    if pd.isna(course):
-        default_class = "FOUNDATION"
-    else:
-        # Try to find a default mapping
-        default_class = None
-        for key, value in default_classes.items():
-            if key in str(course):
-                default_class = value
-                break
+    # Create mapping from course names to standardized class names
+    st.subheader("Course to Class Mapping")
+    st.write("Please map each course name to a standardized class name:")
     
-    # Let user confirm or change the mapping
-    mapped_class = st.text_input(
-        f"Map '{course}' to class:", 
-        value=default_class if default_class else f"GRADE {course}",
-        key=f"map_{course}"
-    )
-    class_mapping[course] = mapped_class.strip()
+    class_mapping = {}
+    default_classes = {
+        "7th Year": "GRADE 07",
+        "6th Year": "GRADE 06", 
+        "5th Year": "GRADE 05",
+        "4th Year": "GRADE 04",
+        "3rd Year": "GRADE 03",
+        "2nd Year": "GRADE 02",
+        "1st Year": "GRADE 01"
+    }
+    
+    for course in unique_courses:
+        # Handle NaN values
+        if pd.isna(course):
+            default_class = "UNASSIGNED"
+        else:
+            # Try to find a default mapping
+            default_class = None
+            for key, value in default_classes.items():
+                if key in str(course):
+                    default_class = value
+                    break
+        
+        # Let user confirm or change the mapping
+        mapped_class = st.text_input(
+            f"Map '{course}' to class:", 
+            value=default_class if default_class else f"GRADE {course}",
+            key=f"map_{course}"
+        )
+        class_mapping[course] = mapped_class.strip()
     
     # Get the list of classes from the mapping
     class_list = list(set(class_mapping.values()))
@@ -620,5 +620,3 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
-
-
