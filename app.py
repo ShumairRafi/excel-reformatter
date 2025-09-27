@@ -291,8 +291,7 @@ if course_column:
         "4th Year": "GRADE 04",
         "3rd Year": "GRADE 03",
         "2nd Year": "GRADE 02",
-        "1st Year": "GRADE 01",
-        "Foundation": "FOUNDATION"  # Added Foundation class
+        "1st Year": "GRADE 01"
     }
     
     for course in unique_courses:
@@ -322,15 +321,11 @@ else:
     st.warning("Could not detect a course/class column in your data.")
     class_names = st.text_area(
         "Enter class names (one per line)", 
-        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 06\nGRADE 07\nFOUNDATION",  # Added FOUNDATION
+        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 06\nGRADE 07",
         help="Enter the class names that should appear in the output. One class per line."
     )
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
-
-# Ensure FOUNDATION class is always included
-if "FOUNDATION" not in class_list:
-    class_list.append("FOUNDATION")
 
 # Get working days with default value as None
 working_days = st.number_input(
@@ -349,12 +344,7 @@ def sort_class_names(class_names):
         numbers = re.findall(r'\d+', name)
         return int(numbers[0]) if numbers else float('inf')
     
-    # Sort with FOUNDATION at the end
-    regular_classes = [name for name in class_names if name != "FOUNDATION"]
-    foundation_classes = [name for name in class_names if name == "FOUNDATION"]
-    
-    sorted_regular = sorted(regular_classes, key=extract_number)
-    return sorted_regular + foundation_classes
+    return sorted(class_names, key=extract_number)
 
 # Function to create Excel file
 def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
@@ -379,7 +369,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
+            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -445,16 +435,23 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         # Apply class mapping
         df['Class'] = df[course_column].map(class_mapping)
         
+        # NEW CODE: Handle UNASSIGNED students with admission number 10000+
+        # Convert Admission No to numeric, coercing errors to NaN
+        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+        
+        # Identify UNASSIGNED students with admission number >= 10000
+        foundation_condition = (df['Class'] == 'UNASSIGNED') & (df['Admission_No_Numeric'] >= 10000)
+        df.loc[foundation_condition, 'Class'] = 'FOUNDATION'
+        
+        # Remove the temporary numeric column
+        df.drop('Admission_No_Numeric', axis=1, inplace=True)
+        
+        # Ensure FOUNDATION is in the class list if we have any foundation students
+        if 'FOUNDATION' in df['Class'].values and 'FOUNDATION' not in class_list:
+            class_list.append('FOUNDATION')
+        
         # Filter for classes in our list
         df = df[df['Class'].isin(class_list)]
-        
-        # NEW: Assign students with admission numbers above 10000 to FOUNDATION class
-        # First, ensure Admission No is numeric
-        df['Admission No'] = pd.to_numeric(df['Admission No'], errors='coerce')
-        
-        # Assign FOUNDATION class to students with admission numbers above 10000
-        foundation_mask = df['Admission No'] > 10000
-        df.loc[foundation_mask, 'Class'] = 'FOUNDATION'
         
         # Group by class
         for class_name in class_list:
@@ -477,49 +474,26 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         # Fallback: If no course column, use the class list as provided
         st.warning("No course column detected. Using manual class assignment.")
         
-        # NEW: Assign students with admission numbers above 10000 to FOUNDATION class
-        # First, ensure Admission No is numeric
-        df['Admission No'] = pd.to_numeric(df['Admission No'], errors='coerce')
+        # Distribute students evenly among classes
+        students_per_class = len(df) // len(class_list)
+        remainder = len(df) % len(class_list)
         
-        # Create foundation class data
-        foundation_mask = df['Admission No'] > 10000
-        foundation_data = df[foundation_mask].copy()
-        foundation_data['Class'] = 'FOUNDATION'
-        
-        # Remove foundation students from the main dataframe
-        df = df[~foundation_mask]
-        
-        # Distribute remaining students evenly among other classes
-        other_classes = [cls for cls in class_list if cls != 'FOUNDATION']
-        
-        if other_classes:
-            students_per_class = len(df) // len(other_classes)
-            remainder = len(df) % len(other_classes)
+        start_idx = 0
+        for i, class_name in enumerate(class_list):
+            end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
+            class_data = df.iloc[start_idx:end_idx].copy()
+            class_data['Class'] = class_name
             
-            start_idx = 0
-            for i, class_name in enumerate(other_classes):
-                end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
-                class_data = df.iloc[start_idx:end_idx].copy()
-                class_data['Class'] = class_name
-                
-                # Select and order columns for output
-                output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
-                                 'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-                
-                # Keep only columns that exist in the dataframe
-                output_columns = [col for col in output_columns if col in class_data.columns]
-                class_data = class_data[output_columns]
-                
-                detailed_dfs[class_name] = class_data
-                start_idx = end_idx
-        
-        # Add foundation class data if there are any foundation students
-        if not foundation_data.empty:
+            # Select and order columns for output
             output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
                              'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-            output_columns = [col for col in output_columns if col in foundation_data.columns]
-            foundation_data = foundation_data[output_columns]
-            detailed_dfs['FOUNDATION'] = foundation_data
+            
+            # Keep only columns that exist in the dataframe
+            output_columns = [col for col in output_columns if col in class_data.columns]
+            class_data = class_data[output_columns]
+            
+            detailed_dfs[class_name] = class_data
+            start_idx = end_idx
     
     return detailed_dfs
 
@@ -658,8 +632,6 @@ The app will create:
 - Present
 - Absent
 - course_name (or similar column indicating student's course/class)
-
-**Special Feature:** Students with admission numbers above 10000 will be automatically assigned to the FOUNDATION class.
 
 If your columns have different names, the app will try to match them automatically.
 """)
