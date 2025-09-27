@@ -49,8 +49,6 @@ if 'working_days' not in st.session_state:
     st.session_state.working_days = None
 if 'file_uploader_key' not in st.session_state:
     st.session_state.file_uploader_key = 0
-if 'highlights' not in st.session_state:
-    st.session_state.highlights = {}
 
 # Function to reset the application
 def reset_application():
@@ -59,7 +57,6 @@ def reset_application():
     st.session_state.detailed_dfs = {}
     st.session_state.sorted_class_names = []
     st.session_state.working_days = None
-    st.session_state.highlights = {}
     st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
 
 # Function to apply Excel styling
@@ -156,60 +153,8 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
     
     return worksheet
 
-# Function to generate highlights and insights
-def generate_highlights(detailed_dfs, summary_df):
-    highlights = {}
-    
-    # Combine all student data
-    all_students = pd.concat(detailed_dfs.values(), ignore_index=True)
-    
-    # 1. Students with zero absence
-    zero_absence_students = all_students[all_students['Absent'] == 0]
-    highlights['zero_absence_count'] = len(zero_absence_students)
-    highlights['zero_absence_students'] = zero_absence_students[['Student Name', 'Class']].head(10)  # Top 10
-    
-    # 2. Students with highest number of absences
-    high_absence_students = all_students.sort_values('Absent', ascending=False)
-    highlights['high_absence_count'] = min(10, len(high_absence_students))
-    highlights['high_absence_students'] = high_absence_students[['Student Name', 'Class', 'Absent']].head(10)
-    
-    # 3. Class with best attendance (highest average attendance percentage)
-    best_class = summary_df.loc[summary_df['Avg_Attendance_Percentage'].idxmax()]
-    highlights['best_class'] = {
-        'class_name': best_class['Class'],
-        'attendance_percentage': best_class['Avg_Attendance_Percentage']
-    }
-    
-    # 4. Class with lowest attendance
-    worst_class = summary_df.loc[summary_df['Avg_Attendance_Percentage'].idxmin()]
-    highlights['worst_class'] = {
-        'class_name': worst_class['Class'],
-        'attendance_percentage': worst_class['Avg_Attendance_Percentage']
-    }
-    
-    # 5. Class with highest attendance rate but with absentees
-    # Filter classes that have some absentees but good attendance
-    classes_with_absentees = summary_df[summary_df['Avg_Absent'] > 0]
-    if not classes_with_absentees.empty:
-        best_class_with_absentees = classes_with_absentees.loc[classes_with_absentees['Avg_Attendance_Percentage'].idxmax()]
-        highlights['best_class_with_absentees'] = {
-            'class_name': best_class_with_absentees['Class'],
-            'attendance_percentage': best_class_with_absentees['Avg_Attendance_Percentage'],
-            'avg_absent': best_class_with_absentees['Avg_Absent']
-        }
-        
-        # Get actual absent students from this class
-        class_data = detailed_dfs[best_class_with_absentees['Class']]
-        absent_students = class_data[class_data['Absent'] > 0][['Student Name', 'Absent']].sort_values('Absent', ascending=False)
-        highlights['absent_students_in_best_class'] = absent_students
-    else:
-        highlights['best_class_with_absentees'] = None
-        highlights['absent_students_in_best_class'] = pd.DataFrame()
-    
-    return highlights
-
 # Function to generate PDF report
-def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names, highlights):
+def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
     """Generate a PDF version of the attendance report"""
     
     # Create PDF object
@@ -220,27 +165,6 @@ def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names, highlights
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(0, 10, "ATTENDANCE SUMMARY", 0, 1, 'C')
-    pdf.ln(10)
-    
-    # Add highlights section
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "KEY HIGHLIGHTS", 0, 1, 'L')
-    pdf.ln(5)
-    
-    pdf.set_font("Arial", '', 12)
-    # Zero absence students
-    pdf.cell(0, 10, f"Students with Perfect Attendance (Zero Absence): {highlights['zero_absence_count']}", 0, 1, 'L')
-    
-    # Highest absence students
-    pdf.cell(0, 10, f"Students with Highest Absences (Top {highlights['high_absence_count']}):", 0, 1, 'L')
-    
-    # Best and worst classes
-    pdf.cell(0, 10, f"Class with Best Attendance: {highlights['best_class']['class_name']} ({highlights['best_class']['attendance_percentage']:.2f}%)", 0, 1, 'L')
-    pdf.cell(0, 10, f"Class with Lowest Attendance: {highlights['worst_class']['class_name']} ({highlights['worst_class']['attendance_percentage']:.2f}%)", 0, 1, 'L')
-    
-    if highlights['best_class_with_absentees']:
-        pdf.cell(0, 10, f"Class with Highest Attendance Rate (with absentees): {highlights['best_class_with_absentees']['class_name']} ({highlights['best_class_with_absentees']['attendance_percentage']:.2f}%)", 0, 1, 'L')
-    
     pdf.ln(10)
     
     # Add summary table
@@ -423,53 +347,12 @@ def sort_class_names(class_names):
     return sorted(class_names, key=extract_number)
 
 # Function to create Excel file
-def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names, highlights):
+def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
     # Create a workbook
     wb = Workbook()
     
     # Remove default sheet
     wb.remove(wb.active)
-    
-    # Add highlights sheet
-    ws_highlights = wb.create_sheet("Highlights")
-    
-    # Write highlights data
-    ws_highlights.append(["ATTENDANCE HIGHLIGHTS"])
-    ws_highlights.append([])
-    
-    # Zero absence students
-    ws_highlights.append(["Students with Perfect Attendance (Zero Absence)", f"Total: {highlights['zero_absence_count']}"])
-    if highlights['zero_absence_count'] > 0:
-        ws_highlights.append(["Student Name", "Class"])
-        for _, student in highlights['zero_absence_students'].iterrows():
-            ws_highlights.append([student['Student Name'], student['Class']])
-    else:
-        ws_highlights.append(["No students with perfect attendance"])
-    ws_highlights.append([])
-    
-    # Highest absence students
-    ws_highlights.append([f"Students with Highest Absences (Top {highlights['high_absence_count']})"])
-    ws_highlights.append(["Student Name", "Class", "Absent Days"])
-    for _, student in highlights['high_absence_students'].iterrows():
-        ws_highlights.append([student['Student Name'], student['Class'], student['Absent']])
-    ws_highlights.append([])
-    
-    # Class performance
-    ws_highlights.append(["Class Performance Summary"])
-    ws_highlights.append(["Best Attendance Class", f"{highlights['best_class']['class_name']} ({highlights['best_class']['attendance_percentage']:.2f}%)"])
-    ws_highlights.append(["Lowest Attendance Class", f"{highlights['worst_class']['class_name']} ({highlights['worst_class']['attendance_percentage']:.2f}%)"])
-    
-    if highlights['best_class_with_absentees']:
-        ws_highlights.append(["Best Class with Absentees", f"{highlights['best_class_with_absentees']['class_name']} ({highlights['best_class_with_absentees']['attendance_percentage']:.2f}%)"])
-        if not highlights['absent_students_in_best_class'].empty:
-            ws_highlights.append([])
-            ws_highlights.append(["Absent Students in Best Class"])
-            ws_highlights.append(["Student Name", "Absent Days"])
-            for _, student in highlights['absent_students_in_best_class'].iterrows():
-                ws_highlights.append([student['Student Name'], student['Absent']])
-    
-    # Apply styling to highlights sheet
-    ws_highlights = apply_excel_styling(ws_highlights, "ATTENDANCE HIGHLIGHTS", is_summary=True)
     
     # Add summary sheet
     ws_summary = wb.create_sheet("Class Summary")
@@ -486,7 +369,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names, highlights):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
+            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -642,22 +525,18 @@ if process_button:
     
     summary_df = pd.DataFrame(summary_data)
     
-    # Generate highlights
-    highlights = generate_highlights(detailed_dfs, summary_df)
-    
     # Store results in session state
     st.session_state.processed = True
     st.session_state.summary_df = summary_df
     st.session_state.detailed_dfs = detailed_dfs
     st.session_state.sorted_class_names = sorted_class_names
-    st.session_state.highlights = highlights
 
 # Show results if data has been processed
 if st.session_state.processed:
     # --- Display preview
     st.subheader("Preview of Processed Data")
     
-    tab1, tab2, tab3 = st.tabs(["Summary", "Detailed View", "Highlights"])
+    tab1, tab2 = st.tabs(["Summary", "Detailed View"])
     
     with tab1:
         st.write("Class Summary")
@@ -667,58 +546,8 @@ if st.session_state.processed:
         selected_class = st.selectbox("Select class to view details", options=st.session_state.sorted_class_names)
         st.dataframe(st.session_state.detailed_dfs[selected_class])
     
-    with tab3:
-        st.subheader("Attendance Highlights")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric(
-                "Students with Perfect Attendance", 
-                st.session_state.highlights['zero_absence_count']
-            )
-            
-            st.metric(
-                "Class with Best Attendance", 
-                f"{st.session_state.highlights['best_class']['class_name']} ({st.session_state.highlights['best_class']['attendance_percentage']:.2f}%)"
-            )
-        
-        with col2:
-            st.metric(
-                "Students with Highest Absences", 
-                st.session_state.highlights['high_absence_count']
-            )
-            
-            st.metric(
-                "Class with Lowest Attendance", 
-                f"{st.session_state.highlights['worst_class']['class_name']} ({st.session_state.highlights['worst_class']['attendance_percentage']:.2f}%)"
-            )
-        
-        # Display detailed highlights
-        st.subheader("Detailed Highlights")
-        
-        # Students with zero absence
-        st.write("**Students with Perfect Attendance (Zero Absence):**")
-        if st.session_state.highlights['zero_absence_count'] > 0:
-            st.dataframe(st.session_state.highlights['zero_absence_students'])
-        else:
-            st.write("No students with perfect attendance")
-        
-        # Students with highest absences
-        st.write(f"**Students with Highest Absences (Top {st.session_state.highlights['high_absence_count']}):**")
-        st.dataframe(st.session_state.highlights['high_absence_students'])
-        
-        # Class with highest attendance rate but with absentees
-        if st.session_state.highlights['best_class_with_absentees']:
-            st.write("**Class with Highest Attendance Rate (with absentees):**")
-            st.write(f"{st.session_state.highlights['best_class_with_absentees']['class_name']} ({st.session_state.highlights['best_class_with_absentees']['attendance_percentage']:.2f}%)")
-            
-            if not st.session_state.highlights['absent_students_in_best_class'].empty:
-                st.write("**Absent Students in this Class:**")
-                st.dataframe(st.session_state.highlights['absent_students_in_best_class'])
-    
     # --- Download buttons
-    excel_bytes = to_excel_bytes(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names, st.session_state.highlights)
+    excel_bytes = to_excel_bytes(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names)
     
     # Create two columns for the download buttons
     col1, col2 = st.columns(2)
@@ -733,7 +562,7 @@ if st.session_state.processed:
     
     with col2:
         # Generate PDF report
-        pdf_bytes = generate_pdf_report(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names, st.session_state.highlights)
+        pdf_bytes = generate_pdf_report(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names)
         
         # Show info message about PDF being in development
         st.info(
@@ -781,12 +610,6 @@ st.markdown("""
 The app will create:
 - A summary sheet with class statistics
 - Separate sheets for each class with detailed student attendance records (ordered by class name)
-- A highlights sheet with key insights including:
-  - Students with perfect attendance (zero absence)
-  - Students with highest number of absences
-  - Class with best attendance rate
-  - Class with lowest attendance rate
-  - Class with highest attendance rate that still has absentees
 
 **Note:** Your data should include at least these columns (or similar):
 - Admission No
