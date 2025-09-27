@@ -294,6 +294,16 @@ if course_column:
         "1st Year": "GRADE 01"
     }
     
+    # NEW: Check if we have any students with admission number >= 10000 that might be assigned to FOUNDATION
+    if 'Admission No' in df.columns:
+        # Convert Admission No to numeric, coercing errors to NaN
+        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+        foundation_students_count = len(df[df['Admission_No_Numeric'] >= 10000])
+        df.drop('Admission_No_Numeric', axis=1, inplace=True)
+        
+        if foundation_students_count > 0:
+            st.info(f"Found {foundation_students_count} student(s) with admission number 10000 or higher. These will be automatically assigned to 'FOUNDATION' class if unassigned.")
+    
     for course in unique_courses:
         # Handle NaN values
         if pd.isna(course):
@@ -314,8 +324,22 @@ if course_column:
         )
         class_mapping[course] = mapped_class.strip()
     
-    # Get the list of classes from the mapping
+    # Get the list of classes from the mapping and automatically add FOUNDATION if we have potential foundation students
     class_list = list(set(class_mapping.values()))
+    
+    # NEW: Always include FOUNDATION in the class list if we have students with admission >= 10000
+    if 'Admission No' in df.columns:
+        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+        foundation_students_count = len(df[df['Admission_No_Numeric'] >= 10000])
+        df.drop('Admission_No_Numeric', axis=1, inplace=True)
+        
+        if foundation_students_count > 0 and 'FOUNDATION' not in class_list:
+            class_list.append('FOUNDATION')
+            st.success("'FOUNDATION' class has been automatically added to the class list for students with admission number 10000+")
+    
+    # NEW: Show the final class list including FOUNDATION
+    st.write("**Final Class List:**")
+    st.write(class_list)
     
 else:
     st.warning("Could not detect a course/class column in your data.")
@@ -326,6 +350,16 @@ else:
     )
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
+    
+    # NEW: For manual class entry, also check for foundation students and add FOUNDATION class
+    if 'Admission No' in df.columns:
+        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+        foundation_students_count = len(df[df['Admission_No_Numeric'] >= 10000])
+        df.drop('Admission_No_Numeric', axis=1, inplace=True)
+        
+        if foundation_students_count > 0 and 'FOUNDATION' not in class_list:
+            class_list.append('FOUNDATION')
+            st.success("'FOUNDATION' class has been automatically added to the class list for students with admission number 10000+")
 
 # Get working days with default value as None
 working_days = st.number_input(
@@ -635,3 +669,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
