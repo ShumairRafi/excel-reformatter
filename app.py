@@ -291,9 +291,7 @@ if course_column:
         "4th Year": "GRADE 04",
         "3rd Year": "GRADE 03",
         "2nd Year": "GRADE 02",
-        "1st Year": "GRADE 01",
-        "Foundation": "FOUNDATION",
-        "FOUNDATION": "FOUNDATION"
+        "1st Year": "GRADE 01"
     }
     
     for course in unique_courses:
@@ -319,15 +317,11 @@ if course_column:
     # Get the list of classes from the mapping
     class_list = list(set(class_mapping.values()))
     
-    # Always include FOUNDATION in the class list
-    if 'FOUNDATION' not in class_list:
-        class_list.append('FOUNDATION')
-    
 else:
     st.warning("Could not detect a course/class column in your data.")
     class_names = st.text_area(
         "Enter class names (one per line)", 
-        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 06\nGRADE 07\nFOUNDATION",
+        value="GRADE 01\nGRADE 02\nGRADE 03\nGRADE 04\nGRADE 05\nGRADE 06\nGRADE 07",
         help="Enter the class names that should appear in the output. One class per line."
     )
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
@@ -375,7 +369,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)
+            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -440,17 +434,6 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     if course_column and class_mapping:
         # Apply class mapping
         df['Class'] = df[course_column].map(class_mapping)
-        
-        # Handle UNASSIGNED students with admission number 10000+
-        # Convert Admission No to numeric, coercing errors to NaN
-        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
-        
-        # Identify UNASSIGNED students with admission number >= 10000
-        foundation_condition = (df['Class'] == 'UNASSIGNED') & (df['Admission_No_Numeric'] >= 10000)
-        df.loc[foundation_condition, 'Class'] = 'FOUNDATION'
-        
-        # Remove the temporary numeric column
-        df.drop('Admission_No_Numeric', axis=1, inplace=True)
         
         # Filter for classes in our list
         df = df[df['Class'].isin(class_list)]
