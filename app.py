@@ -439,96 +439,59 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     # Calculate attendance percentage
     df['Working_Days'] = working_days
     df['Attendance %'] = (df['Present'] / working_days) * 100
-    
-    # Convert Admission No to numeric for Foundation student detection
-    try:
-        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
-    except:
-        st.error("Could not convert Admission No to numeric values. Foundation student detection may not work properly.")
-        df['Admission_No_Numeric'] = 0
-    
-    # If we have a course column, use it to map to classes
-    if course_column and class_mapping:
-        # Apply class mapping first
-        df['Class'] = df[course_column].map(class_mapping)
+
+# Convert Admission No to numeric for Foundation student detection
+try:
+    df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+except:
+    st.error("Could not convert Admission No to numeric values. Foundation student detection may not work properly.")
+    df['Admission_No_Numeric'] = 0
+
+# Identify Foundation students (admission number 10000+)
+foundation_mask = df['Admission_No_Numeric'] >= 10000
+foundation_students = df[foundation_mask].copy()
+regular_students = df[~foundation_mask].copy()
+
+# Count foundation students
+foundation_count = foundation_mask.sum()
+if foundation_count > 0:
+    st.success(f"Found {foundation_count} students with admission numbers 10000+ assigned to FOUNDATION class")
+
+# Process regular students normally
+if course_column and class_mapping:
+    regular_students['Class'] = regular_students[course_column].map(class_mapping)
+    regular_students = regular_students[regular_students['Class'].isin(class_list)]
+else:
+    # Fallback distribution for regular students
+    remaining_classes = [cls for cls in class_list if cls != "FOUNDATION"]
+    if len(remaining_classes) > 0:
+        students_per_class = len(regular_students) // len(remaining_classes)
+        remainder = len(regular_students) % len(remaining_classes)
         
-        # Override class for Foundation students (admission number 10000+)
-        foundation_mask = df['Admission_No_Numeric'] >= 10000
-        df.loc[foundation_mask, 'Class'] = "FOUNDATION"
-        
-        # Count foundation students
-        foundation_count = foundation_mask.sum()
-        if foundation_count > 0:
-            st.success(f"Found {foundation_count} students with admission numbers 10000+ assigned to FOUNDATION class")
-        
-        # Filter for classes in our list
-        df = df[df['Class'].isin(class_list)]
-        
-        # Group by class
-        for class_name in class_list:
-            class_data = df[df['Class'] == class_name].copy()
+        start_idx = 0
+        for i, class_name in enumerate(remaining_classes):
+            end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
+            class_data = regular_students.iloc[start_idx:end_idx].copy()
+            class_data['Class'] = class_name
             
-            if class_data.empty:
-                st.warning(f"No students found for class: {class_name}")
-                continue
-                
-            # Select and order columns for output
             output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
                              'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-            
-            # Keep only columns that exist in the dataframe
             output_columns = [col for col in output_columns if col in class_data.columns]
             class_data = class_data[output_columns]
             
             detailed_dfs[class_name] = class_data
-    else:
-        # Fallback: If no course column, use the class list as provided
-        st.warning("No course column detected. Using manual class assignment.")
-        
-        # First assign Foundation students
-        foundation_mask = df['Admission_No_Numeric'] >= 10000
-        df.loc[foundation_mask, 'Class'] = "FOUNDATION"
-        
-        # Count foundation students
-        foundation_count = foundation_mask.sum()
-        if foundation_count > 0:
-            st.success(f"Found {foundation_count} students with admission numbers 10000+ assigned to FOUNDATION class")
-        
-        # Distribute remaining students evenly among other classes
-        remaining_classes = [cls for cls in class_list if cls != "FOUNDATION"]
-        remaining_students = df[~foundation_mask].copy()
-        
-        if len(remaining_classes) > 0 and len(remaining_students) > 0:
-            students_per_class = len(remaining_students) // len(remaining_classes)
-            remainder = len(remaining_students) % len(remaining_classes)
-            
-            start_idx = 0
-            for i, class_name in enumerate(remaining_classes):
-                end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
-                class_data = remaining_students.iloc[start_idx:end_idx].copy()
-                class_data['Class'] = class_name
-                
-                # Select and order columns for output
-                output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
-                                 'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-                
-                # Keep only columns that exist in the dataframe
-                output_columns = [col for col in output_columns if col in class_data.columns]
-                class_data = class_data[output_columns]
-                
-                detailed_dfs[class_name] = class_data
-                start_idx = end_idx
-        
-        # Add Foundation class data if it exists
-        if foundation_count > 0:
-            foundation_data = df[foundation_mask].copy()
-            output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
-                             'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-            output_columns = [col for col in output_columns if col in foundation_data.columns]
-            foundation_data = foundation_data[output_columns]
-            detailed_dfs["FOUNDATION"] = foundation_data
-    
-    return detailed_dfs
+            start_idx = end_idx
+
+# Process Foundation students separately
+if foundation_count > 0:
+    foundation_students['Class'] = "FOUNDATION"
+    output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
+                     'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
+    output_columns = [col for col in output_columns if col in foundation_students.columns]
+    foundation_students = foundation_students[output_columns]
+    detailed_dfs["FOUNDATION"] = foundation_students
+
+return detailed_dfs
 
 # --- Generate the detailed data
 process_button = st.button("Process Attendance Data")
@@ -669,3 +632,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
