@@ -327,6 +327,11 @@ else:
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
 
+# Add Foundation class to the class list
+if "FOUNDATION" not in class_list:
+    class_list.append("FOUNDATION")
+    st.info("Note: Students with admission numbers 10000+ will be automatically assigned to the FOUNDATION class.")
+
 # Get working days with default value as None
 working_days = st.number_input(
     "Total working days*", 
@@ -344,7 +349,12 @@ def sort_class_names(class_names):
         numbers = re.findall(r'\d+', name)
         return int(numbers[0]) if numbers else float('inf')
     
-    return sorted(class_names, key=extract_number)
+    # Sort regular classes first, then Foundation
+    regular_classes = [cls for cls in class_names if cls != "FOUNDATION"]
+    foundation_classes = [cls for cls in class_names if cls == "FOUNDATION"]
+    
+    sorted_regular = sorted(regular_classes, key=extract_number)
+    return sorted_regular + foundation_classes
 
 # Function to create Excel file
 def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
@@ -369,7 +379,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
+            ws_class = wb.create_sheet(sheet_name)
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -430,10 +440,26 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     df['Working_Days'] = working_days
     df['Attendance %'] = (df['Present'] / working_days) * 100
     
+    # Convert Admission No to numeric for Foundation student detection
+    try:
+        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+    except:
+        st.error("Could not convert Admission No to numeric values. Foundation student detection may not work properly.")
+        df['Admission_No_Numeric'] = 0
+    
     # If we have a course column, use it to map to classes
     if course_column and class_mapping:
-        # Apply class mapping
+        # Apply class mapping first
         df['Class'] = df[course_column].map(class_mapping)
+        
+        # Override class for Foundation students (admission number 10000+)
+        foundation_mask = df['Admission_No_Numeric'] >= 10000
+        df.loc[foundation_mask, 'Class'] = "FOUNDATION"
+        
+        # Count foundation students
+        foundation_count = foundation_mask.sum()
+        if foundation_count > 0:
+            st.success(f"Found {foundation_count} students with admission numbers 10000+ assigned to FOUNDATION class")
         
         # Filter for classes in our list
         df = df[df['Class'].isin(class_list)]
@@ -459,26 +485,48 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         # Fallback: If no course column, use the class list as provided
         st.warning("No course column detected. Using manual class assignment.")
         
-        # Distribute students evenly among classes
-        students_per_class = len(df) // len(class_list)
-        remainder = len(df) % len(class_list)
+        # First assign Foundation students
+        foundation_mask = df['Admission_No_Numeric'] >= 10000
+        df.loc[foundation_mask, 'Class'] = "FOUNDATION"
         
-        start_idx = 0
-        for i, class_name in enumerate(class_list):
-            end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
-            class_data = df.iloc[start_idx:end_idx].copy()
-            class_data['Class'] = class_name
+        # Count foundation students
+        foundation_count = foundation_mask.sum()
+        if foundation_count > 0:
+            st.success(f"Found {foundation_count} students with admission numbers 10000+ assigned to FOUNDATION class")
+        
+        # Distribute remaining students evenly among other classes
+        remaining_classes = [cls for cls in class_list if cls != "FOUNDATION"]
+        remaining_students = df[~foundation_mask].copy()
+        
+        if len(remaining_classes) > 0 and len(remaining_students) > 0:
+            students_per_class = len(remaining_students) // len(remaining_classes)
+            remainder = len(remaining_students) % len(remaining_classes)
             
-            # Select and order columns for output
+            start_idx = 0
+            for i, class_name in enumerate(remaining_classes):
+                end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
+                class_data = remaining_students.iloc[start_idx:end_idx].copy()
+                class_data['Class'] = class_name
+                
+                # Select and order columns for output
+                output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
+                                 'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
+                
+                # Keep only columns that exist in the dataframe
+                output_columns = [col for col in output_columns if col in class_data.columns]
+                class_data = class_data[output_columns]
+                
+                detailed_dfs[class_name] = class_data
+                start_idx = end_idx
+        
+        # Add Foundation class data if it exists
+        if foundation_count > 0:
+            foundation_data = df[foundation_mask].copy()
             output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
                              'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-            
-            # Keep only columns that exist in the dataframe
-            output_columns = [col for col in output_columns if col in class_data.columns]
-            class_data = class_data[output_columns]
-            
-            detailed_dfs[class_name] = class_data
-            start_idx = end_idx
+            output_columns = [col for col in output_columns if col in foundation_data.columns]
+            foundation_data = foundation_data[output_columns]
+            detailed_dfs["FOUNDATION"] = foundation_data
     
     return detailed_dfs
 
@@ -610,6 +658,7 @@ st.markdown("""
 The app will create:
 - A summary sheet with class statistics
 - Separate sheets for each class with detailed student attendance records (ordered by class name)
+- **Students with admission numbers 10000+ will be automatically assigned to the FOUNDATION class**
 
 **Note:** Your data should include at least these columns (or similar):
 - Admission No
