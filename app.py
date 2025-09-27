@@ -238,12 +238,12 @@ def read_excel(file, sheet_name_hint=""):
             return pd.read_excel(file, sheet_name=sheet_name_hint, engine="openpyxl")
         else:
             return pd.read_excel(file, engine="openpyxl")
-        except Exception as e:
-            try:
-                return pd.read_excel(file, engine="openpyxl")
-            except Exception as e2:
-                st.error(f"Error reading file: {e2}")
-                return None
+    except Exception as e:
+        try:
+            return pd.read_excel(file, engine="openpyxl")
+        except Exception as e2:
+            st.error(f"Error reading file: {e2}")
+            return None
 
 try:
     df = read_excel(uploaded_file)
