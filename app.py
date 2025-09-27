@@ -98,7 +98,7 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
                 if cell.column == 1:  # Admission No
                     cell.alignment = alignment_center
                 elif cell.column == 2:  # Student Name
-                    cell.alignment = alignment_left
+                    cell.alignment = alignment_center
                 else:
                     cell.alignment = alignment_center
     
@@ -620,3 +620,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
