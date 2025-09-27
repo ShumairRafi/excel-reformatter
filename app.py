@@ -291,21 +291,10 @@ if course_column:
         "4th Year": "GRADE 04",
         "3rd Year": "GRADE 03",
         "2nd Year": "GRADE 02",
-        "1st Year": "GRADE 01"
+        "1st Year": "GRADE 01",
+        "Foundation": "FOUNDATION",  # NEW: Added Foundation mapping
+        "FOUNDATION": "FOUNDATION"   # NEW: Added FOUNDATION mapping
     }
-    
-    # Check if we have any students with admission number >= 10000
-    if 'Admission No' in df.columns:
-        # Convert Admission No to numeric, coercing errors to NaN
-        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
-        foundation_students_count = len(df[df['Admission_No_Numeric'] >= 10000])
-        df.drop('Admission_No_Numeric', axis=1, inplace=True)
-        
-        if foundation_students_count > 0:
-            st.info(f"Found {foundation_students_count} student(s) with admission number 10000 or higher. These will be automatically assigned to 'FOUNDATION' class.")
-    
-    # Add FOUNDATION as an option in the mapping
-    unique_courses_with_foundation = unique_courses.copy()
     
     for course in unique_courses:
         # Handle NaN values
@@ -327,13 +316,12 @@ if course_column:
         )
         class_mapping[course] = mapped_class.strip()
     
-    # Get the list of classes from the mapping and automatically add FOUNDATION
+    # Get the list of classes from the mapping
     class_list = list(set(class_mapping.values()))
     
     # Always include FOUNDATION in the class list
     if 'FOUNDATION' not in class_list:
         class_list.append('FOUNDATION')
-        st.success("'FOUNDATION' class has been added for students with admission number 10000+")
     
 else:
     st.warning("Could not detect a course/class column in your data.")
@@ -448,28 +436,24 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     df['Working_Days'] = working_days
     df['Attendance %'] = (df['Present'] / working_days) * 100
     
-    # If we have a course column, use it to map to classes
-    if course_column and class_mapping:
-        # Apply class mapping
-        df['Class'] = df[course_column].map(class_mapping)
-        
-        # NEW CODE: Handle UNASSIGNED students with admission number 10000+
-        # Convert Admission No to numeric, coercing errors to NaN
-        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
-        
-        # Identify UNASSIGNED students with admission number >= 10000
-        foundation_condition = (df['Class'] == 'UNASSIGNED') & (df['Admission_No_Numeric'] >= 10000)
-        df.loc[foundation_condition, 'Class'] = 'FOUNDATION'
-        
-        # Remove the temporary numeric column
-        df.drop('Admission_No_Numeric', axis=1, inplace=True)
-        
-        # Ensure FOUNDATION is in the class list if we have any foundation students
-        if 'FOUNDATION' in df['Class'].values and 'FOUNDATION' not in class_list:
-            class_list.append('FOUNDATION')
-        
-        # Filter for classes in our list
-        df = df[df['Class'].isin(class_list)]
+   # If we have a course column, use it to map to classes
+if course_column and class_mapping:
+    # Apply class mapping
+    df['Class'] = df[course_column].map(class_mapping)
+    
+    # Handle UNASSIGNED students with admission number 10000+
+    # Convert Admission No to numeric, coercing errors to NaN
+    df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+    
+    # Identify UNASSIGNED students with admission number >= 10000 and assign to FOUNDATION
+    foundation_condition = (df['Class'] == 'UNASSIGNED') & (df['Admission_No_Numeric'] >= 10000)
+    df.loc[foundation_condition, 'Class'] = 'FOUNDATION'
+    
+    # Remove the temporary numeric column
+    df.drop('Admission_No_Numeric', axis=1, inplace=True)
+    
+    # Filter for classes in our list
+    df = df[df['Class'].isin(class_list)]
         
         # Group by class
         for class_name in class_list:
@@ -653,5 +637,6 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
