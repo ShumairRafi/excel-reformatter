@@ -292,8 +292,8 @@ if course_column:
         "3rd Year": "GRADE 03",
         "2nd Year": "GRADE 02",
         "1st Year": "GRADE 01",
-        "Foundation": "FOUNDATION",  # NEW: Added Foundation mapping
-        "FOUNDATION": "FOUNDATION"   # NEW: Added FOUNDATION mapping
+        "Foundation": "FOUNDATION",
+        "FOUNDATION": "FOUNDATION"
     }
     
     for course in unique_courses:
@@ -375,7 +375,7 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
         if class_name in detailed_dfs:
             # Shorten sheet name if too long for Excel
             sheet_name = class_name[:31] if len(class_name) > 31 else class_name
-            ws_class = wb.create_sheet(sheet_name)  # Fixed: Changed create() to create_sheet()
+            ws_class = wb.create_sheet(sheet_name)
             
             # Write class data
             for r in dataframe_to_rows(detailed_dfs[class_name], index=False, header=True):
@@ -436,24 +436,24 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     df['Working_Days'] = working_days
     df['Attendance %'] = (df['Present'] / working_days) * 100
     
-   # If we have a course column, use it to map to classes
-if course_column and class_mapping:
-    # Apply class mapping
-    df['Class'] = df[course_column].map(class_mapping)
-    
-    # Handle UNASSIGNED students with admission number 10000+
-    # Convert Admission No to numeric, coercing errors to NaN
-    df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
-    
-    # Identify UNASSIGNED students with admission number >= 10000 and assign to FOUNDATION
-    foundation_condition = (df['Class'] == 'UNASSIGNED') & (df['Admission_No_Numeric'] >= 10000)
-    df.loc[foundation_condition, 'Class'] = 'FOUNDATION'
-    
-    # Remove the temporary numeric column
-    df.drop('Admission_No_Numeric', axis=1, inplace=True)
-    
-    # Filter for classes in our list
-    df = df[df['Class'].isin(class_list)]
+    # If we have a course column, use it to map to classes
+    if course_column and class_mapping:
+        # Apply class mapping
+        df['Class'] = df[course_column].map(class_mapping)
+        
+        # Handle UNASSIGNED students with admission number 10000+
+        # Convert Admission No to numeric, coercing errors to NaN
+        df['Admission_No_Numeric'] = pd.to_numeric(df['Admission No'], errors='coerce')
+        
+        # Identify UNASSIGNED students with admission number >= 10000
+        foundation_condition = (df['Class'] == 'UNASSIGNED') & (df['Admission_No_Numeric'] >= 10000)
+        df.loc[foundation_condition, 'Class'] = 'FOUNDATION'
+        
+        # Remove the temporary numeric column
+        df.drop('Admission_No_Numeric', axis=1, inplace=True)
+        
+        # Filter for classes in our list
+        df = df[df['Class'].isin(class_list)]
         
         # Group by class
         for class_name in class_list:
@@ -637,6 +637,3 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
-
-
-
