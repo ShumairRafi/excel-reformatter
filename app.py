@@ -49,6 +49,8 @@ if 'working_days' not in st.session_state:
     st.session_state.working_days = None
 if 'file_uploader_key' not in st.session_state:
     st.session_state.file_uploader_key = 0
+if 'student_working_days' not in st.session_state:
+    st.session_state.student_working_days = {}
 
 # Function to reset the application
 def reset_application():
@@ -620,3 +622,4 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
