@@ -22,20 +22,6 @@ Upload your attendance summary Excel file and the app will generate detailed stu
 """
 )
 
-# Show Developer Message
-st.info(
-"""
-**Message from the Developer**
-            
-✨ Assalamu Alaikum Warahmatullahi Wabarakatuh, Ustadh! ✨
-
-It is with great pleasure that I present this Attendance Data Transformer application, hoping to simplify Ustadh's administrative tasks and bring efficiency in managing student attendance records.
-
-Should Ustadh encounter any challenges or have suggestions for refinement, please know that Ustadh's guidance is deeply valued and will be gratefully received to further improve this tool.
-
-I hope this application will help bring ease to Ustadh's important work. Jazakallah Khairan!
-""")
-
 # Initialize session state variables
 if 'processed' not in st.session_state:
     st.session_state.processed = False
@@ -660,6 +646,7 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
 
