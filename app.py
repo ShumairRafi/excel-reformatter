@@ -458,9 +458,17 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         else:
             df['Very_Late'] = 0
     
-    # Calculate attendance percentage
-    df['Working_Days'] = working_days
-    df['Attendance %'] = (df['Present'] / working_days) * 100
+    # Apply per-student working days if provided
+    if 'student_working_days' in st.session_state and st.session_state.student_working_days:
+        df['Working_Days'] = df['Admission No'].map(
+            st.session_state.student_working_days
+        ).fillna(working_days)
+    else:
+        df['Working_Days'] = working_days
+    
+    # Calculate attendance percentage per student
+    df['Attendance %'] = (df['Present'] / df['Working_Days']) * 100
+
     
     # If we have a course column, use it to map to classes
     if course_column and class_mapping:
@@ -652,5 +660,6 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
 
