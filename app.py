@@ -339,6 +339,36 @@ working_days = st.number_input(
     placeholder="Enter a number between 1 and 365"
 )
 
+# Optional: Override working days for specific students
+override_working_days = st.checkbox(
+    "Override working days for specific students",
+    help="Enable this to set different working days for selected students"
+)
+
+if override_working_days:
+    st.subheader("Set Individual Working Days")
+
+    temp_df = df[['Admission No', 'Student Name']].copy()
+    temp_df['Working_Days'] = working_days
+
+    edited_df = st.data_editor(
+        temp_df,
+        use_container_width=True,
+        column_config={
+            "Working_Days": st.column_config.NumberColumn(
+                "Working Days",
+                min_value=1,
+                max_value=365,
+                step=1
+            )
+        }
+    )
+
+    # Store per-student working days
+    st.session_state.student_working_days = dict(
+        zip(edited_df['Admission No'], edited_df['Working_Days'])
+    )
+
 # Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
 def sort_class_names(class_names):
     def extract_number(name):
@@ -622,4 +652,5 @@ The app will create:
 
 If your columns have different names, the app will try to match them automatically.
 """)
+
 
