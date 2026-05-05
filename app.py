@@ -357,12 +357,18 @@ if override_working_days:
 
 # Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
 def sort_class_names(class_names):
-    def extract_number(name):
-        # Extract numbers from class name
+    def sort_key(name):
+        # Extract grade number
         numbers = re.findall(r'\d+', name)
-        return int(numbers[0]) if numbers else float('inf')
+        grade_num = int(numbers[0]) if numbers else 999
+        
+        # Extract section (A, B, etc.)
+        match = re.search(r'-\s*([A-Z])$', name)
+        section = match.group(1) if match else ''
+        
+        return (grade_num, section)
     
-    return sorted(class_names, key=extract_number)
+    return sorted(class_names, key=sort_key)
 
 # Function to create Excel file
 def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
@@ -480,7 +486,11 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         else:
             updated_class_list.append(cls)
 
-    class_list = list(set(updated_class_list))
+    # Preserve order without using set
+    class_list = []
+    for cls in updated_class_list:
+    if cls not in class_list:
+        class_list.append(cls)
 
     # --- GROUPING ---
     for class_name in class_list:
