@@ -490,7 +490,7 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     class_list = []
     for cls in updated_class_list:
         if cls not in class_list:
-        class_list.append(cls)
+            class_list.append(cls)
 
     # --- GROUPING ---
     for class_name in class_list:
