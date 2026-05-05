@@ -409,42 +409,44 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
 def process_real_data(df, class_list, course_column, class_mapping, working_days):
     detailed_dfs = {}
     
+    # Ensure batch_id exists
+    if 'batch_id' not in df.columns:
+        st.error("The column 'batch_id' is required to split Grade 02 into sections.")
+        st.stop()
+    
     # Ensure we have the required columns
     required_columns = ['Admission No', 'Student Name', 'Present', 'Absent']
     available_columns = df.columns.tolist()
     
-    # Try to map existing columns to required columns using fuzzy matching
+    # Fuzzy match required columns
     column_mapping = {}
     for req_col in required_columns:
         match = process.extractOne(req_col, available_columns, scorer=fuzz.token_sort_ratio)
-        if match and match[1] > 60:  # If similarity score > 60%
+        if match and match[1] > 60:
             column_mapping[req_col] = match[0]
         else:
             column_mapping[req_col] = req_col
-            st.warning(f"Could not find a matching column for '{req_col}'. Please ensure your data has this column.")
+            st.warning(f"Could not find a matching column for '{req_col}'.")
     
-    # Also try to map optional columns like Late and Very Late
+    # Optional columns
     optional_columns = ['Late', 'Very_Late', 'Very Late']
     for opt_col in optional_columns:
         match = process.extractOne(opt_col, available_columns, scorer=fuzz.token_sort_ratio)
         if match and match[1] > 60:
             column_mapping[opt_col] = match[0]
-            st.info(f"Mapped '{match[0]}' to '{opt_col}'")
     
-    # Rename columns for consistency
     df = df.rename(columns=column_mapping)
     
-    # Add missing columns with default values
+    # Fill missing optional columns
     if 'Late' not in df.columns:
         df['Late'] = 0
     if 'Very_Late' not in df.columns:
-        # Also check for 'Very Late' with space
         if 'Very Late' in df.columns:
             df['Very_Late'] = df['Very Late']
         else:
             df['Very_Late'] = 0
     
-    # Apply per-student working days if provided
+    # Working days logic
     if 'student_working_days' in st.session_state and st.session_state.student_working_days:
         df['Working_Days'] = df['Admission No'].map(
             st.session_state.student_working_days
@@ -452,60 +454,49 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     else:
         df['Working_Days'] = working_days
     
-    # Calculate attendance percentage per student
+    # Attendance %
     df['Attendance %'] = (df['Present'] / df['Working_Days']) * 100
 
-    
-    # If we have a course column, use it to map to classes
-    if course_column and class_mapping:
-        # Apply class mapping
-        df['Class'] = df[course_column].map(class_mapping)
+    # --- CLASS MAPPING ---
+    df['Class'] = df[course_column].map(class_mapping)
+
+    # 🔥 NEW: Split Grade 02 using batch_id
+    def split_grade_2(row):
+        if row['Class'] == 'GRADE 02':
+            try:
+                section = str(row['batch_id']).split('-')[1]  # Extract A or B
+                return f"GRADE 02 - {section}"
+            except:
+                return "GRADE 02 - UNKNOWN"
+        return row['Class']
+
+    df['Class'] = df.apply(split_grade_2, axis=1)
+
+    # 🔥 Update class list dynamically
+    updated_class_list = []
+    for cls in class_list:
+        if cls == 'GRADE 02':
+            updated_class_list.extend(['GRADE 02 - A', 'GRADE 02 - B'])
+        else:
+            updated_class_list.append(cls)
+
+    class_list = list(set(updated_class_list))
+
+    # --- GROUPING ---
+    for class_name in class_list:
+        class_data = df[df['Class'] == class_name].copy()
         
-        # Filter for classes in our list
-        df = df[df['Class'].isin(class_list)]
+        if class_data.empty:
+            continue
+            
+        output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
+                         'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
         
-        # Group by class
-        for class_name in class_list:
-            class_data = df[df['Class'] == class_name].copy()
-            
-            if class_data.empty:
-                st.warning(f"No students found for class: {class_name}")
-                continue
-                
-            # Select and order columns for output
-            output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
-                             'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-            
-            # Keep only columns that exist in the dataframe
-            output_columns = [col for col in output_columns if col in class_data.columns]
-            class_data = class_data[output_columns]
-            
-            detailed_dfs[class_name] = class_data
-    else:
-        # Fallback: If no course column, use the class list as provided
-        st.warning("No course column detected. Using manual class assignment.")
+        output_columns = [col for col in output_columns if col in class_data.columns]
+        class_data = class_data[output_columns]
         
-        # Distribute students evenly among classes
-        students_per_class = len(df) // len(class_list)
-        remainder = len(df) % len(class_list)
-        
-        start_idx = 0
-        for i, class_name in enumerate(class_list):
-            end_idx = start_idx + students_per_class + (1 if i < remainder else 0)
-            class_data = df.iloc[start_idx:end_idx].copy()
-            class_data['Class'] = class_name
-            
-            # Select and order columns for output
-            output_columns = ['Admission No', 'Student Name', 'Working_Days', 'Present', 
-                             'Absent', 'Late', 'Very_Late', 'Attendance %', 'Class']
-            
-            # Keep only columns that exist in the dataframe
-            output_columns = [col for col in output_columns if col in class_data.columns]
-            class_data = class_data[output_columns]
-            
-            detailed_dfs[class_name] = class_data
-            start_idx = end_idx
-    
+        detailed_dfs[class_name] = class_data
+
     return detailed_dfs
 
 # --- Generate the detailed data
