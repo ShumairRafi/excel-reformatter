@@ -489,7 +489,7 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     # Preserve order without using set
     class_list = []
     for cls in updated_class_list:
-    if cls not in class_list:
+        if cls not in class_list:
         class_list.append(cls)
 
     # --- GROUPING ---
