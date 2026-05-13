@@ -481,8 +481,7 @@ def sort_class_names(class_names):
 
     return sorted(class_names, key=sort_key)
 
-
-# AUTO DETECT WORKING DAYS FROM DATA (SEPARATE FUNCTION — NOT INSIDE)
+#Function to detect working days
 def detect_working_days(df):
     try:
         if 'Present' in df.columns and 'Absent' in df.columns:
@@ -491,7 +490,7 @@ def detect_working_days(df):
     except:
         pass
     return None
-
+    
 # Function to create Excel file
 def to_excel_bytes(
     summary_df,
