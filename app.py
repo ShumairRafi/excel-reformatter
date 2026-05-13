@@ -403,7 +403,32 @@ else:
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
 
+# --- Working Days Settings
+st.subheader("Working Days Settings")
 
+# Auto detect working days from Present + Absent
+auto_working_days = detect_working_days(df)
+
+if auto_working_days:
+    st.success(f"Auto-detected working days from file: {auto_working_days}")
+else:
+    st.warning("Could not auto-detect working days. Please enter manually.")
+
+# Manual override option
+use_manual = st.checkbox("Override working days manually")
+
+if use_manual or not auto_working_days:
+
+    working_days = st.number_input(
+        "Total working days*",
+        min_value=1,
+        max_value=365,
+        value=st.session_state.working_days if st.session_state.working_days else 1,
+        help="Enter total working days manually"
+    )
+
+else:
+    working_days = auto_working_days
 
 # --- Highlight settings
 st.subheader("Late Comer Highlight Settings")
