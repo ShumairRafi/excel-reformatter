@@ -176,7 +176,7 @@ def apply_excel_styling(
             start=3
         ):
 
-            # AUTO DETECT WORKING DAYS FROM DATA
+        # AUTO DETECT WORKING DAYS FROM DATA
         def detect_working_days(df):
             try:
                 if 'Present' in df.columns and 'Absent' in df.columns:
