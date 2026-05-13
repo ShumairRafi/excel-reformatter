@@ -215,18 +215,37 @@ def apply_excel_styling(
 
     # TITLE ROW
     worksheet.insert_rows(1)
-
+    
     if is_summary:
         worksheet.merge_cells('A1:H1')
     else:
         worksheet.merge_cells('A1:I1')
-
+    
     title_cell = worksheet['A1']
     title_cell.value = title
-
-    title_cell.font = Font(name='Aptos Display', size=14, bold=True)
-    title_cell.alignment = Alignment(horizontal='center', vertical='center')
-
+    
+    # 🔥 SUMMARY TITLE STYLE
+    if is_summary:
+        title_cell.font = Font(
+            name='Aptos Display',
+            size=36,
+            bold=True
+        )
+    
+        worksheet.row_dimensions[1].height = 45
+    
+    else:
+        title_cell.font = Font(
+            name='Aptos Display',
+            size=14,
+            bold=True
+        )
+    
+    title_cell.alignment = Alignment(
+        horizontal='center',
+        vertical='center'
+    )
+    
     return worksheet
 
 # Function to detect working days automatically
@@ -667,7 +686,16 @@ def to_excel_bytes(
         ws_summary.append(r)
     
     # Apply styling to summary sheet
-    ws_summary = apply_excel_styling(ws_summary, "ATTENDANCE SUMMARY", is_summary=True)
+    # Extract date range from uploaded filename
+    start_date, end_date = extract_date_range(uploaded_file.name)
+    
+    summary_title = f"ATTENDANCE SUMMARY - {start_date} - {end_date}"
+    
+    ws_summary = apply_excel_styling(
+        ws_summary,
+        summary_title,
+        is_summary=True
+    )
     
     # Add class sheets
     for class_name in sorted_class_names:
