@@ -80,8 +80,7 @@ def apply_excel_styling(
         cell.border = thin_border
     
     # Apply styles to data rows
-   for row in worksheet.iter_rows
-        (min_row=2, max_row=worksheet.max_row):
+    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
 
     # Skip title row
     if row[0].row == 2:
@@ -104,17 +103,15 @@ def apply_excel_styling(
         cell.font = data_font
         cell.border = thin_border
 
+        # Alignment
         if is_summary:
             cell.alignment = alignment_center
         else:
             cell.alignment = alignment_center
 
-        # Highlight student row in yellow
+        # Highlight entire row in yellow
         if should_highlight and not is_summary:
             cell.fill = yellow_fill
-        for cell in row:
-            cell.font = data_font
-            cell.border = thin_border
             
             # For summary sheet, alignment
             if is_summary:
