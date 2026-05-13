@@ -137,9 +137,69 @@ def apply_excel_styling(
 
     # COLUMN WIDTHS
     if is_summary:
-        column_widths = {
-            'A': 18, 'B': 20, 'C': 23, 'D': 15,
-            'E': 15, 'F': 15, 'G': 15, 'H': 30
+
+    # 📊 DASHBOARD COLUMN WIDTHS
+    column_widths = {
+        'A': 20,  # Class
+        'B': 18,  # Total Students
+        'C': 20,  # Working Days
+        'D': 15,  # Avg Present
+        'E': 15,  # Avg Absent
+        'F': 15,  # Avg Late
+        'G': 18,  # Avg Very Late
+        'H': 25   # Attendance %
+    }
+
+    for col, width in column_widths.items():
+        worksheet.column_dimensions[col].width = width
+
+    # ❄️ Freeze header + title
+    worksheet.freeze_panes = "A3"
+
+    # 🏆 FIND TOP PERFORMING CLASS (HIGHEST ATTENDANCE %)
+    top_attendance = -1
+    top_row_index = None
+
+    for idx, row in enumerate(
+        worksheet.iter_rows(min_row=3, max_row=worksheet.max_row),
+        start=3
+    ):
+        try:
+            attendance = float(row[7].value)
+            if attendance > top_attendance:
+                top_attendance = attendance
+                top_row_index = idx
+        except:
+            pass
+
+    # 🎨 DASHBOARD ROW STYLING
+    for i, row in enumerate(
+        worksheet.iter_rows(min_row=3, max_row=worksheet.max_row),
+        start=3
+    ):
+
+        # Base alternating row color
+        base_fill = PatternFill(
+            start_color="F7F9FC" if i % 2 == 0 else "FFFFFF",
+            end_color="F7F9FC" if i % 2 == 0 else "FFFFFF",
+            fill_type="solid"
+        )
+
+        # 🟢 TOP CLASS HIGHLIGHT
+        if i == top_row_index:
+            fill = PatternFill(
+                start_color="C6EFCE",
+                end_color="C6EFCE",
+                fill_type="solid"
+            )
+        else:
+            fill = base_fill
+
+        for cell in row:
+            cell.fill = fill
+            cell.font = Font(name='Aptos Display', size=11)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = thin_border
         }
     else:
         column_widths = {
