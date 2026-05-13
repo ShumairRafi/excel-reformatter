@@ -145,7 +145,7 @@ def apply_excel_styling(
             'E': 15,  # Avg Absent
             'F': 15,  # Avg Late
             'G': 18,  # Avg Very Late
-            'H': 25   # Attendance %
+            'H': 28   # Attendance %
         }
     
         for col, width in column_widths.items():
