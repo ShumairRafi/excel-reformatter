@@ -487,16 +487,16 @@ if override_working_days:
 
 # Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
 def sort_class_names(class_names):
-# AUTO DETECT WORKING DAYS FROM DATA
-def detect_working_days(df):
-    try:
-        if 'Present' in df.columns and 'Absent' in df.columns:
-            df['__total_days__'] = df['Present'] + df['Absent']
-            return int(df['__total_days__'].max())
-    except:
-        pass
-    return None
-    def sort_key(name):
+    # AUTO DETECT WORKING DAYS FROM DATA
+    def detect_working_days(df):
+        try:
+            if 'Present' in df.columns and 'Absent' in df.columns:
+                df['__total_days__'] = df['Present'] + df['Absent']
+                return int(df['__total_days__'].max())
+        except:
+            pass
+        return None
+        def sort_key(name):
 
 # Extract grade number
     numbers = re.findall(r'\d+', name)
