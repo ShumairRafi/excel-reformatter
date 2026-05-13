@@ -403,15 +403,27 @@ else:
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
 
-# Get working days with default value as None
-working_days = st.number_input(
-    "Total working days*", 
-    min_value=1, 
-    max_value=365, 
-    value=st.session_state.working_days,
-    help="Enter the total number of working days for the period. This field is required.",
-    placeholder="Enter a number between 1 and 365"
-)
+# --- AUTO DETECT WORKING DAYS ---
+auto_working_days = detect_working_days(df)
+
+st.subheader("Working Days Settings")
+
+if auto_working_days:
+    st.success(f"Auto-detected working days from file: {auto_working_days}")
+else:
+    st.warning("Could not auto-detect working days. Please enter manually.")
+
+use_manual = st.checkbox("Override working days manually")
+
+if use_manual or not auto_working_days:
+    working_days = st.number_input(
+        "Total working days*",
+        min_value=1,
+        max_value=365,
+        value=st.session_state.working_days if st.session_state.working_days else 1
+    )
+else:
+    working_days = auto_working_days
 
 # --- Highlight settings
 st.subheader("Late Comer Highlight Settings")
@@ -475,6 +487,15 @@ if override_working_days:
 
 # Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
 def sort_class_names(class_names):
+# AUTO DETECT WORKING DAYS FROM DATA
+def detect_working_days(df):
+    try:
+        if 'Present' in df.columns and 'Absent' in df.columns:
+            df['__total_days__'] = df['Present'] + df['Absent']
+            return int(df['__total_days__'].max())
+    except:
+        pass
+    return None
     def sort_key(name):
         # Extract grade number
         numbers = re.findall(r'\d+', name)
