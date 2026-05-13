@@ -799,26 +799,10 @@ elif not process_button:
 st.markdown("---")
 st.subheader("Instructions")
 st.markdown("""
-1. Upload your attendance summary Excel file
-2. The app will detect the 'course_name' column and show you the unique values
-3. Map each course name to a standardized class name (e.g., "7th Year" → "GRADE 07")
-4. **Set the total working days** (this field is required and must be greater than 0)
-5. Click "Process Attendance Data"
-6. Review the preview and download the generated file
-7. Use the "Add a new file" button to reset the application and upload a different file
 
 The app will create:
 - A summary sheet with class statistics
 - Separate sheets for each class with detailed student attendance records (ordered by class name)
-
-**Note:** Your data should include at least these columns (or similar):
-- Admission No
-- Student Name  
-- Present
-- Absent
-- course_name (or similar column indicating student's course/class)
-
-If your columns have different names, the app will try to match them automatically.
 """)
 
 
