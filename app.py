@@ -175,16 +175,6 @@ def apply_excel_styling(
             worksheet.iter_rows(min_row=3, max_row=worksheet.max_row),
             start=3
         ):
-
-    # AUTO DETECT WORKING DAYS FROM DATA
-    def detect_working_days(df):
-        try:
-            if 'Present' in df.columns and 'Absent' in df.columns:
-                df['__total_days__'] = df['Present'] + df['Absent']
-                return int(df['__total_days__'].max())
-        except:
-            pass
-        return None
             
             # Base alternating row color
             base_fill = PatternFill(
