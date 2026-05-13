@@ -498,17 +498,17 @@ def sort_class_names(class_names):
         return None
         def sort_key(name):
 
-# Extract grade number
-    numbers = re.findall(r'\d+', name)
-    grade_num = int(numbers[0]) if numbers else 999
+    # Extract grade number
+        numbers = re.findall(r'\d+', name)
+        grade_num = int(numbers[0]) if numbers else 999
+            
+    # Extract section (A, B, etc.)
+        match = re.search(r'-\s*([A-Z])$', name)
+        section = match.group(1) if match else ''
+            
+        return (grade_num, section)
         
-# Extract section (A, B, etc.)
-    match = re.search(r'-\s*([A-Z])$', name)
-    section = match.group(1) if match else ''
-        
-    return (grade_num, section)
-    
-return sorted(class_names, key=sort_key)
+    return sorted(class_names, key=sort_key)
 
 # Function to create Excel file
 def to_excel_bytes(
