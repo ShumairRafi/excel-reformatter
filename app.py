@@ -55,10 +55,10 @@ def apply_excel_styling(
     is_summary=False,
     student_names=None,
     late_threshold=0,
-    very_late_threshold=0
+    very_late_threshold=0,
+    absent_threshold=0
 ):
 
-    # Define styles
     header_font = Font(name='Aptos Display', size=12, bold=True)
     data_font = Font(name='Aptos Display', size=12)
 
@@ -74,7 +74,7 @@ def apply_excel_styling(
         fill_type="solid"
     )
 
-    # ✅ NEW: Absent color (light red)
+    # 🔴 RED for Absent
     red_fill = PatternFill(
         start_color="F94949",
         end_color="F94949",
@@ -93,18 +93,14 @@ def apply_excel_styling(
         bottom=Side(style='thin')
     )
 
-    # -----------------------------
-    # HEADER ROW STYLING
-    # -----------------------------
+    # HEADER STYLE
     for cell in worksheet[1]:
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = alignment_center
         cell.border = thin_border
 
-    # -----------------------------
-    # DATA ROW STYLING
-    # -----------------------------
+    # DATA STYLE
     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
 
         late_value = 0
@@ -114,11 +110,12 @@ def apply_excel_styling(
         try:
             late_value = row[5].value if row[5].value is not None else 0
             very_late_value = row[6].value if row[6].value is not None else 0
-            absent_value = row[4].value if row[4].value is not None else 0  # Absent column
+            absent_value = row[4].value if row[4].value is not None else 0
         except:
             pass
 
-        is_absent = absent_value > 0
+        # Conditions
+        is_absent = absent_value >= absent_threshold
 
         should_highlight = (
             late_value >= late_threshold or
@@ -130,56 +127,34 @@ def apply_excel_styling(
             cell.border = thin_border
             cell.alignment = alignment_center
 
-            # 🔴 ABSENT = RED (highest priority)
+            # 🔴 ABSENT (highest priority)
             if is_absent:
                 cell.fill = red_fill
 
-            # 🟡 LATE = YELLOW (only if not absent)
+            # 🟡 LATE / VERY LATE
             elif should_highlight and not is_summary:
                 cell.fill = yellow_fill
 
-    # -----------------------------
     # COLUMN WIDTHS
-    # -----------------------------
     if is_summary:
-
         column_widths = {
-            'A': 18,
-            'B': 20,
-            'C': 23,
-            'D': 15,
-            'E': 15,
-            'F': 15,
-            'G': 15,
-            'H': 30
+            'A': 18, 'B': 20, 'C': 23, 'D': 15,
+            'E': 15, 'F': 15, 'G': 15, 'H': 30
         }
-
     else:
-
         column_widths = {
-            'A': 15,
-            'B': 40,
-            'C': 15,
-            'D': 10,
-            'E': 10,
-            'F': 10,
-            'G': 12,
-            'H': 15,
-            'I': 12
+            'A': 15, 'B': 40, 'C': 15, 'D': 10,
+            'E': 10, 'F': 10, 'G': 12, 'H': 15, 'I': 12
         }
 
     for col, width in column_widths.items():
         worksheet.column_dimensions[col].width = width
 
-    # -----------------------------
     # FORMAT PERCENTAGE COLUMN
-    # -----------------------------
     for row in range(2, worksheet.max_row + 1):
         worksheet[f'H{row}'].number_format = '0.00'
 
-    # -----------------------------
     # TITLE ROW
-    # -----------------------------
     worksheet.insert_rows(1)
 
     if is_summary:
@@ -189,6 +164,7 @@ def apply_excel_styling(
 
     title_cell = worksheet['A1']
     title_cell.value = title
+
     title_cell.font = Font(name='Aptos Display', size=14, bold=True)
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
 
@@ -400,6 +376,15 @@ very_late_highlight_threshold = st.number_input(
     help="Student names will be highlighted in yellow if their Very Late days reach this number"
 )
 
+absent_highlight_threshold = st.number_input(
+    "Highlight students if Absent days are greater than or equal to:",
+    min_value=0,
+    max_value=365,
+    value=3,
+    step=1,
+    help="Student rows will be highlighted in red if Absent days reach this number"
+)
+
 # Optional: Override working days for specific students
 override_working_days = st.checkbox(
     "Override working days for specific students",
@@ -484,12 +469,14 @@ def to_excel_bytes(
             
             # Apply styling to class sheet
             ws_class = apply_excel_styling(
-            ws_class,
-            class_name,
-            is_summary=False,
-            student_names=student_names,
-            late_threshold=late_highlight_threshold,
-            very_late_threshold=very_late_highlight_threshold)
+                ws_class,
+                class_name,
+                is_summary=False,
+                student_names=student_names,
+                late_threshold=late_highlight_threshold,
+                very_late_threshold=very_late_highlight_threshold,
+                absent_threshold=absent_highlight_threshold
+            )
     
     # Save to bytes
     towrite = BytesIO()
