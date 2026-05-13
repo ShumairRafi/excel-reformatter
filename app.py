@@ -80,7 +80,8 @@ def apply_excel_styling(
         cell.border = thin_border
     
     # Apply styles to data rows
-   for row in worksheet.iter_rows (min_row=2, max_row=worksheet.max_row):
+   for row in worksheet.iter_rows
+        (min_row=2, max_row=worksheet.max_row):
 
     # Skip title row
     if row[0].row == 2:
