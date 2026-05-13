@@ -175,7 +175,17 @@ def apply_excel_styling(
             worksheet.iter_rows(min_row=3, max_row=worksheet.max_row),
             start=3
         ):
-    
+
+            # AUTO DETECT WORKING DAYS FROM DATA
+        def detect_working_days(df):
+            try:
+                if 'Present' in df.columns and 'Absent' in df.columns:
+                    df['__total_days__'] = df['Present'] + df['Absent']
+                    return int(df['__total_days__'].max())
+            except:
+                pass
+            return None
+            
             # Base alternating row color
             base_fill = PatternFill(
                 start_color="F7F9FC" if i % 2 == 0 else "FFFFFF",
@@ -403,27 +413,7 @@ else:
     class_list = [name.strip() for name in class_names.split('\n') if name.strip()]
     class_mapping = {}
 
-# --- AUTO DETECT WORKING DAYS ---
-auto_working_days = detect_working_days(df)
 
-st.subheader("Working Days Settings")
-
-if auto_working_days:
-    st.success(f"Auto-detected working days from file: {auto_working_days}")
-else:
-    st.warning("Could not auto-detect working days. Please enter manually.")
-
-use_manual = st.checkbox("Override working days manually")
-
-if use_manual or not auto_working_days:
-    working_days = st.number_input(
-        "Total working days*",
-        min_value=1,
-        max_value=365,
-        value=st.session_state.working_days if st.session_state.working_days else 1
-    )
-else:
-    working_days = auto_working_days
 
 # --- Highlight settings
 st.subheader("Late Comer Highlight Settings")
