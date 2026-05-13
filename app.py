@@ -198,8 +198,7 @@ def apply_excel_styling(
                 cell.font = Font(name='Aptos Display', size=11)
                 cell.alignment = Alignment(horizontal='center', vertical='center')
                 cell.border = thin_border
-                }
-        
+                
     else:
         column_widths = {
             'A': 15, 'B': 40, 'C': 15, 'D': 10,
