@@ -74,12 +74,18 @@ def apply_excel_styling(
         fill_type="solid"
     )
 
+    # ✅ NEW: Absent color (light red)
+    red_fill = PatternFill(
+        start_color="F94949",
+        end_color="F94949",
+        fill_type="solid"
+    )
+
     alignment_center = Alignment(
         horizontal='center',
         vertical='center'
     )
 
-    # Thin border
     thin_border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
@@ -101,31 +107,35 @@ def apply_excel_styling(
     # -----------------------------
     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
 
-        # Default values
         late_value = 0
         very_late_value = 0
+        absent_value = 0
 
-        # Read Late / Very Late columns
         try:
             late_value = row[5].value if row[5].value is not None else 0
             very_late_value = row[6].value if row[6].value is not None else 0
+            absent_value = row[4].value if row[4].value is not None else 0  # Absent column
         except:
             pass
 
-        # Check if row should be highlighted
+        is_absent = absent_value > 0
+
         should_highlight = (
             late_value >= late_threshold or
             very_late_value >= very_late_threshold
         )
 
-        # Apply styling
         for cell in row:
             cell.font = data_font
             cell.border = thin_border
             cell.alignment = alignment_center
 
-            # Highlight row
-            if should_highlight and not is_summary:
+            # 🔴 ABSENT = RED (highest priority)
+            if is_absent:
+                cell.fill = red_fill
+
+            # 🟡 LATE = YELLOW (only if not absent)
+            elif should_highlight and not is_summary:
                 cell.fill = yellow_fill
 
     # -----------------------------
@@ -168,7 +178,7 @@ def apply_excel_styling(
         worksheet[f'H{row}'].number_format = '0.00'
 
     # -----------------------------
-    # ADD TITLE ROW
+    # TITLE ROW
     # -----------------------------
     worksheet.insert_rows(1)
 
@@ -178,19 +188,9 @@ def apply_excel_styling(
         worksheet.merge_cells('A1:I1')
 
     title_cell = worksheet['A1']
-
     title_cell.value = title
-
-    title_cell.font = Font(
-        name='Aptos Display',
-        size=14,
-        bold=True
-    )
-
-    title_cell.alignment = Alignment(
-        horizontal='center',
-        vertical='center'
-    )
+    title_cell.font = Font(name='Aptos Display', size=14, bold=True)
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
 
     return worksheet
 
