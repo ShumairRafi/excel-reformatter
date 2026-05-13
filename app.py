@@ -237,7 +237,7 @@ def apply_excel_styling(
     else:
         title_cell.font = Font(
             name='Aptos Display',
-            size=14,
+            size=24,
             bold=True
         )
     
