@@ -202,7 +202,7 @@ def apply_excel_styling(
     else:
         column_widths = {
             'A': 15, 'B': 40, 'C': 15, 'D': 10,
-            'E': 10, 'F': 10, 'G': 12, 'H': 15, 'I': 12
+            'E': 10, 'F': 10, 'G': 12, 'H': 15, 'I': 14
         }
 
     for col, width in column_widths.items():
