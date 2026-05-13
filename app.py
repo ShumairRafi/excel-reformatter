@@ -140,7 +140,7 @@ def apply_excel_styling(
         column_widths = {
             'A': 20,  # Class
             'B': 18,  # Total Students
-            'C': 20,  # Working Days
+            'C': 22,  # Working Days
             'D': 15,  # Avg Present
             'E': 15,  # Avg Absent
             'F': 15,  # Avg Late
