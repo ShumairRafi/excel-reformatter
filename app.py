@@ -11,6 +11,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 import tempfile
 from fpdf import FPDF
 import base64
+from datetime import datetime
 
 st.set_page_config(page_title="Attendance Data Transformer", layout="wide")
 
@@ -238,67 +239,187 @@ def detect_working_days(df):
         pass
     return None
 
+# Function to extract date range from uploaded filename
+def extract_date_range(filename):
+    """
+    Example filename:
+    Attendance Summary_2026-05-04_2026-05-08_20260512113609.xlsx
+    """
+
+    try:
+        matches = re.findall(r'(\d{4}-\d{2}-\d{2})', filename)
+
+        if len(matches) >= 2:
+            start_date = datetime.strptime(matches[0], "%Y-%m-%d")
+            end_date = datetime.strptime(matches[1], "%Y-%m-%d")
+
+            return (
+                start_date.strftime("%d.%m.%y"),
+                end_date.strftime("%d.%m.%y")
+            )
+
+    except:
+        pass
+
+    return ("N/A", "N/A")
+
 # Function to generate PDF report
-def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
-    """Generate a PDF version of the attendance report"""
-    
-    # Create PDF object
+def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names, uploaded_filename):
+
+    start_date, end_date = extract_date_range(uploaded_filename)
+
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Add a page for the summary
+    pdf.set_auto_page_break(auto=True, margin=10)
+
+    # =========================
+    # SUMMARY PAGE
+    # =========================
     pdf.add_page()
+
+    # Title
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "ATTENDANCE SUMMARY", 0, 1, 'C')
-    pdf.ln(10)
-    
-    # Add summary table
-    pdf.set_font("Arial", 'B', 12)
-    columns = list(summary_df.columns)
-    
-    # Set column widths
-    col_widths = [40, 30, 35, 25, 25, 25, 25, 40]
-    
-    # Add header
-    for i, column in enumerate(columns):
-        pdf.cell(col_widths[i], 10, column, 1, 0, 'C')
+    pdf.cell(
+        0,
+        10,
+        f"ATTENDANCE SUMMARY - {start_date} - {end_date}",
+        ln=True,
+        align='C'
+    )
+
+    pdf.ln(5)
+
+    # Summary table
+    headers = [
+        "Class",
+        "Students",
+        "Days",
+        "Present",
+        "Absent",
+        "Late",
+        "V.Late",
+        "Attendance %"
+    ]
+
+    col_widths = [35, 20, 18, 22, 22, 18, 20, 30]
+
+    # Header
+    pdf.set_font("Arial", 'B', 10)
+
+    for i, header in enumerate(headers):
+        pdf.cell(col_widths[i], 10, header, border=1, align='C')
+
     pdf.ln()
-    
-    # Add data rows
-    pdf.set_font("Arial", '', 10)
+
+    # Data
+    pdf.set_font("Arial", '', 9)
+
     for _, row in summary_df.iterrows():
-        for i, column in enumerate(columns):
-            value = str(row[column])
-            pdf.cell(col_widths[i], 10, value, 1, 0, 'C')
+
+        values = [
+            str(row["Class"]),
+            str(row["Total_Students"]),
+            str(row["Total_Working_Days"]),
+            str(row["Avg_Present"]),
+            str(row["Avg_Absent"]),
+            str(row["Avg_Late"]),
+            str(row["Avg_Very_Late"]),
+            f'{row["Avg_Attendance_Percentage"]:.2f}'
+        ]
+
+        for i, value in enumerate(values):
+            pdf.cell(col_widths[i], 9, value, border=1, align='C')
+
         pdf.ln()
-    
-    # Add detailed class reports
+
+    # =========================
+    # DETAILED CLASS PAGES
+    # =========================
     for class_name in sorted_class_names:
-        if class_name in detailed_dfs:
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, f"CLASS: {class_name}", 0, 1, 'C')
-            pdf.ln(10)
-            
-            df_detail = detailed_dfs[class_name]
-            columns = list(df_detail.columns)
-            
-            # Set column widths for detail table
-            detail_col_widths = [30, 60, 25, 20, 20, 20, 25, 25, 20]
-            
-            # Add header
-            pdf.set_font("Arial", 'B', 10)
-            for i, column in enumerate(columns):
-                pdf.cell(detail_col_widths[i], 10, column, 1, 0, 'C')
+
+        if class_name not in detailed_dfs:
+            continue
+
+        df_detail = detailed_dfs[class_name]
+
+        pdf.add_page()
+
+        # Class title
+        pdf.set_font("Arial", 'B', 15)
+        pdf.cell(
+            0,
+            10,
+            f"{class_name} ({start_date} - {end_date})",
+            ln=True,
+            align='C'
+        )
+
+        pdf.ln(4)
+
+        headers = [
+            "Adm No",
+            "Student Name",
+            "W.D",
+            "P",
+            "A",
+            "L",
+            "V.L",
+            "Att%"
+        ]
+
+        widths = [18, 70, 12, 12, 12, 12, 12, 18]
+
+        # Header
+        pdf.set_font("Arial", 'B', 8)
+
+        for i, h in enumerate(headers):
+            pdf.cell(widths[i], 8, h, border=1, align='C')
+
+        pdf.ln()
+
+        # Rows
+        pdf.set_font("Arial", '', 7)
+
+        for _, row in df_detail.iterrows():
+
+            values = [
+                str(row["Admission No"]),
+                str(row["Student Name"])[:40],
+                str(row["Working_Days"]),
+                str(row["Present"]),
+                str(row["Absent"]),
+                str(row["Late"]),
+                str(row["Very_Late"]),
+                f'{row["Attendance %"]:.2f}'
+            ]
+
+            # Highlight logic
+            is_absent = row["Absent"] >= absent_highlight_threshold
+
+            is_late = (
+                row["Late"] >= late_highlight_threshold or
+                row["Very_Late"] >= very_late_highlight_threshold
+            )
+
+            if is_absent:
+                pdf.set_fill_color(249, 73, 73)  # red
+            elif is_late:
+                pdf.set_fill_color(255, 255, 0)  # yellow
+            else:
+                pdf.set_fill_color(255, 255, 255)
+
+            for i, value in enumerate(values):
+                pdf.cell(
+                    widths[i],
+                    7,
+                    value,
+                    border=1,
+                    align='C',
+                    fill=True
+                )
+
             pdf.ln()
-            
-            # Add data rows
-            pdf.set_font("Arial", '', 8)
-            for _, row in df_detail.iterrows():
-                for i, column in enumerate(columns):
-                    value = str(row[column])
-                    pdf.cell(detail_col_widths[i], 10, value, 1, 0, 'C')
-                pdf.ln()
+
+    return pdf.output(dest='S').encode('latin1')
     
     # Save to bytes buffer
     pdf_bytes = pdf.output(dest='S').encode('latin1')
