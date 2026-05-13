@@ -187,8 +187,8 @@ def apply_excel_styling(
             # 🟢 TOP CLASS HIGHLIGHT
             if i == top_row_index:
                 fill = PatternFill(
-                    start_color="C6EFCE",
-                    end_color="C6EFCE",
+                    start_color="60D276",
+                    end_color="60D276",
                     fill_type="solid"
                 )
             else:
