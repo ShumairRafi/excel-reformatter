@@ -228,6 +228,15 @@ def apply_excel_styling(
 
     return worksheet
 
+# Function to detect working days automatically
+def detect_working_days(df):
+    try:
+        if 'Present' in df.columns and 'Absent' in df.columns:
+            df['__total_days__'] = df['Present'] + df['Absent']
+            return int(df['__total_days__'].max())
+    except:
+        pass
+    return None
 
 # Function to generate PDF report
 def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
