@@ -199,7 +199,7 @@ def apply_excel_styling(
             cell.fill = fill
             cell.font = Font(name='Aptos Display', size=11)
             cell.alignment = Alignment(horizontal='center', vertical='center')
-            cell.border = thin_border}
+            cell.border = thin_border
         
     else:
         column_widths = {
