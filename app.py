@@ -883,8 +883,12 @@ if st.session_state.processed:
     
     with col2:
         # Generate PDF report
-        pdf_bytes = generate_pdf_report(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names)
-        
+        pdf_bytes = generate_pdf_report(
+            st.session_state.summary_df,
+            st.session_state.detailed_dfs,
+            st.session_state.sorted_class_names,
+            uploaded_file.name
+        )        
         # Show info message about PDF being in development
         st.info(
             """
