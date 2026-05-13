@@ -128,7 +128,7 @@ def apply_excel_styling(
             cell.alignment = alignment_center
 
             # 🔴 ABSENT (highest priority)
-            if is_absent:
+            if is_absent and not is_summary:
                 cell.fill = red_fill
 
             # 🟡 LATE / VERY LATE
