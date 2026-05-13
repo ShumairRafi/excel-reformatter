@@ -47,7 +47,7 @@ def reset_application():
     st.session_state.working_days = None
     st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
 
-```
+
 # Function to apply Excel styling
 def apply_excel_styling(
     worksheet,
@@ -193,7 +193,7 @@ def apply_excel_styling(
     )
 
     return worksheet
-```
+
 
 # Function to generate PDF report
 def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
