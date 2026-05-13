@@ -48,11 +48,19 @@ def reset_application():
     st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
 
 # Function to apply Excel styling
-def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
+def apply_excel_styling(
+    worksheet,
+    title,
+    is_summary=False,
+    student_names=None,
+    late_threshold=0,
+    very_late_threshold=0
+):
     # Define styles
     header_font = Font(name='Aptos Display', size=12, bold=True)
     data_font = Font(name='Aptos Display', size=12)
     header_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
+    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     alignment_center = Alignment(horizontal='center', vertical='center')
     alignment_left = Alignment(horizontal='left', vertical='center')
     
@@ -72,7 +80,37 @@ def apply_excel_styling(worksheet, title, is_summary=False, student_names=None):
         cell.border = thin_border
     
     # Apply styles to data rows
-    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+   for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+
+    # Skip title row
+    if row[0].row == 2:
+        continue
+
+    # Get Late and Very Late values
+    try:
+        late_value = row[5].value if row[5].value is not None else 0
+        very_late_value = row[6].value if row[6].value is not None else 0
+    except:
+        late_value = 0
+        very_late_value = 0
+
+    should_highlight = (
+        late_value >= late_threshold or
+        very_late_value >= very_late_threshold
+    )
+
+    for cell in row:
+        cell.font = data_font
+        cell.border = thin_border
+
+        if is_summary:
+            cell.alignment = alignment_center
+        else:
+            cell.alignment = alignment_center
+
+        # Highlight student row in yellow
+        if should_highlight and not is_summary:
+            cell.fill = yellow_fill
         for cell in row:
             cell.font = data_font
             cell.border = thin_border
@@ -325,6 +363,27 @@ working_days = st.number_input(
     placeholder="Enter a number between 1 and 365"
 )
 
+# --- Highlight settings
+st.subheader("Late Comer Highlight Settings")
+
+late_highlight_threshold = st.number_input(
+    "Highlight students if Late days are greater than or equal to:",
+    min_value=0,
+    max_value=365,
+    value=4,
+    step=1,
+    help="Student names will be highlighted in yellow if their Late days reach this number"
+)
+
+very_late_highlight_threshold = st.number_input(
+    "Highlight students if Very Late days are greater than or equal to:",
+    min_value=0,
+    max_value=365,
+    value=1,
+    step=1,
+    help="Student names will be highlighted in yellow if their Very Late days reach this number"
+)
+
 # Optional: Override working days for specific students
 override_working_days = st.checkbox(
     "Override working days for specific students",
@@ -371,7 +430,12 @@ def sort_class_names(class_names):
     return sorted(class_names, key=sort_key)
 
 # Function to create Excel file
-def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
+def to_excel_bytes(
+    summary_df,
+    detailed_dfs,
+    sorted_class_names,
+    late_threshold,
+    very_late_threshold):
     # Create a workbook
     wb = Workbook()
     
@@ -403,7 +467,13 @@ def to_excel_bytes(summary_df, detailed_dfs, sorted_class_names):
             student_names = detailed_dfs[class_name]['Student Name'].tolist() if 'Student Name' in detailed_dfs[class_name].columns else []
             
             # Apply styling to class sheet
-            ws_class = apply_excel_styling(ws_class, class_name, is_summary=False, student_names=student_names)
+            ws_class = apply_excel_styling(
+            ws_class,
+            class_name,
+            is_summary=False,
+            student_names=student_names,
+            late_threshold=late_highlight_threshold,
+            very_late_threshold=very_late_highlight_threshold)
     
     # Save to bytes
     towrite = BytesIO()
@@ -574,7 +644,12 @@ if st.session_state.processed:
         st.dataframe(st.session_state.detailed_dfs[selected_class])
     
     # --- Download buttons
-    excel_bytes = to_excel_bytes(st.session_state.summary_df, st.session_state.detailed_dfs, st.session_state.sorted_class_names)
+    excel_bytes = to_excel_bytes(
+    st.session_state.summary_df,
+    st.session_state.detailed_dfs,
+    st.session_state.sorted_class_names,
+    late_highlight_threshold,
+    very_late_highlight_threshold)
     
     # Create two columns for the download buttons
     col1, col2 = st.columns(2)
