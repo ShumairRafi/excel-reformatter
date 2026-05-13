@@ -47,6 +47,7 @@ def reset_application():
     st.session_state.working_days = None
     st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
 
+```
 # Function to apply Excel styling
 def apply_excel_styling(
     worksheet,
@@ -56,14 +57,28 @@ def apply_excel_styling(
     late_threshold=0,
     very_late_threshold=0
 ):
+
     # Define styles
     header_font = Font(name='Aptos Display', size=12, bold=True)
     data_font = Font(name='Aptos Display', size=12)
-    header_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
-    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-    alignment_center = Alignment(horizontal='center', vertical='center')
-    alignment_left = Alignment(horizontal='left', vertical='center')
-    
+
+    header_fill = PatternFill(
+        start_color="DDEBF7",
+        end_color="DDEBF7",
+        fill_type="solid"
+    )
+
+    yellow_fill = PatternFill(
+        start_color="FFFF00",
+        end_color="FFFF00",
+        fill_type="solid"
+    )
+
+    alignment_center = Alignment(
+        horizontal='center',
+        vertical='center'
+    )
+
     # Thin border
     thin_border = Border(
         left=Side(style='thin'),
@@ -71,111 +86,114 @@ def apply_excel_styling(
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
-    
-    # Apply styles to header row
+
+    # -----------------------------
+    # HEADER ROW STYLING
+    # -----------------------------
     for cell in worksheet[1]:
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = alignment_center
         cell.border = thin_border
-    
-    # Apply styles to data rows
+
+    # -----------------------------
+    # DATA ROW STYLING
+    # -----------------------------
     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
 
-    # Skip title row
-    if row[0].row == 2:
-        continue
-
-    # Get Late and Very Late values
-    try:
-        late_value = row[5].value if row[5].value is not None else 0
-        very_late_value = row[6].value if row[6].value is not None else 0
-    except:
+        # Default values
         late_value = 0
         very_late_value = 0
 
-    should_highlight = (
-        late_value >= late_threshold or
-        very_late_value >= very_late_threshold
-    )
+        # Read Late / Very Late columns
+        try:
+            late_value = row[5].value if row[5].value is not None else 0
+            very_late_value = row[6].value if row[6].value is not None else 0
+        except:
+            pass
 
-    for cell in row:
-        cell.font = data_font
-        cell.border = thin_border
+        # Check if row should be highlighted
+        should_highlight = (
+            late_value >= late_threshold or
+            very_late_value >= very_late_threshold
+        )
 
-        # Alignment
-        if is_summary:
+        # Apply styling
+        for cell in row:
+            cell.font = data_font
+            cell.border = thin_border
             cell.alignment = alignment_center
-        else:
-            cell.alignment = alignment_center
 
-        # Highlight entire row in yellow
-        if should_highlight and not is_summary:
-            cell.fill = yellow_fill
-            
-            # For summary sheet, alignment
-            if is_summary:
-                    cell.alignment = alignment_center
-            
-            else:
-                # For class sheets, use the original alignment
-                if cell.column == 1:  # Admission No
-                    cell.alignment = alignment_center
-                elif cell.column == 2:  # Student Name
-                    cell.alignment = alignment_center
-                else:
-                    cell.alignment = alignment_center
-    
-    # Adjust column widths
+            # Highlight row
+            if should_highlight and not is_summary:
+                cell.fill = yellow_fill
+
+    # -----------------------------
+    # COLUMN WIDTHS
+    # -----------------------------
     if is_summary:
+
         column_widths = {
-            'A': 18,  # Class
-            'B': 20,  # Total_Students
-            'C': 23,  # Total_Working_Days
-            'D': 15,  # Avg_Present
-            'E': 15,  # Avg_Absent
-            'F': 15,  # Avg_Late
-            'G': 15,  # Avg_Very_Late
-            'H': 30   # Avg_Attendance_Percentage
+            'A': 18,
+            'B': 20,
+            'C': 23,
+            'D': 15,
+            'E': 15,
+            'F': 15,
+            'G': 15,
+            'H': 30
         }
+
     else:
-            
+
         column_widths = {
-            'A': 15,  # Admission No
-            'B': 40,  # Student Name
-            'C': 15,  # Working Days
-            'D': 10,  # Present
-            'E': 10,  # Absent
-            'F': 10,  # Late
-            'G': 12,  # Very Late
-            'H': 15,  # Attendance %
-            'I': 12   # Class
+            'A': 15,
+            'B': 40,
+            'C': 15,
+            'D': 10,
+            'E': 10,
+            'F': 10,
+            'G': 12,
+            'H': 15,
+            'I': 12
         }
-    
+
     for col, width in column_widths.items():
         worksheet.column_dimensions[col].width = width
-    
-    # Format percentage column
+
+    # -----------------------------
+    # FORMAT PERCENTAGE COLUMN
+    # -----------------------------
     for row in range(2, worksheet.max_row + 1):
-        if is_summary:
-            cell = worksheet[f'H{row}']
-        else:
-            cell = worksheet[f'H{row}']
-        cell.number_format = '0.00'
-    
-    # Add title
+        worksheet[f'H{row}'].number_format = '0.00'
+
+    # -----------------------------
+    # ADD TITLE ROW
+    # -----------------------------
     worksheet.insert_rows(1)
+
     if is_summary:
         worksheet.merge_cells('A1:H1')
-        title_cell = worksheet['A1']
     else:
         worksheet.merge_cells('A1:I1')
-        title_cell = worksheet['A1']
+
+    title_cell = worksheet['A1']
+
     title_cell.value = title
-    title_cell.font = Font(name='Aptos Display', size=14, bold=True)
-    title_cell.alignment = Alignment(horizontal='center', vertical='center')
-    
+
+    title_cell.font = Font(
+        name='Aptos Display',
+        size=14,
+        bold=True
+    )
+
+    title_cell.alignment = Alignment(
+        horizontal='center',
+        vertical='center'
+    )
+
     return worksheet
+```
 
 # Function to generate PDF report
 def generate_pdf_report(summary_df, detailed_dfs, sorted_class_names):
