@@ -123,7 +123,7 @@ def apply_excel_styling(
             very_late_value >= very_late_threshold
         )
 
-            for idx, cell in enumerate(row):
+        for idx, cell in enumerate(row):
             cell.font = data_font
             cell.border = thin_border
             cell.alignment = alignment_center
