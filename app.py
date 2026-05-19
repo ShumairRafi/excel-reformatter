@@ -38,6 +38,10 @@ if 'file_uploader_key' not in st.session_state:
     st.session_state.file_uploader_key = 0
 if 'student_working_days' not in st.session_state:
     st.session_state.student_working_days = {}
+if 'student_late_days' not in st.session_state:
+    st.session_state.student_late_days = {}
+if 'student_very_late_days' not in st.session_state:
+    st.session_state.student_very_late_days = {}
 
 # Function to reset the application
 def reset_application():
@@ -655,6 +659,60 @@ if override_working_days:
         zip(edited_df['Admission No'], edited_df['Working_Days'])
     )
 
+# Optional: Override Late / Very Late for specific students
+override_late_days = st.checkbox(
+    "Override Late / Very Late days for specific students",
+    help="Enable this to manually edit Late and Very Late days per student"
+)
+
+if override_late_days:
+
+    st.subheader("Set Individual Late / Very Late Days")
+
+    temp_late_df = df[['Admission No', 'Student Name']].copy()
+
+    # Existing values if available
+    temp_late_df['Late'] = (
+        df['Late'] if 'Late' in df.columns else 0
+    )
+
+    if 'Very_Late' in df.columns:
+        temp_late_df['Very_Late'] = df['Very_Late']
+
+    elif 'Very Late' in df.columns:
+        temp_late_df['Very_Late'] = df['Very Late']
+
+    else:
+        temp_late_df['Very_Late'] = 0
+
+    edited_late_df = st.data_editor(
+        temp_late_df,
+        use_container_width=True,
+        column_config={
+            "Late": st.column_config.NumberColumn(
+                "Late",
+                min_value=0,
+                max_value=365,
+                step=1
+            ),
+            "Very_Late": st.column_config.NumberColumn(
+                "Very Late",
+                min_value=0,
+                max_value=365,
+                step=1
+            )
+        }
+    )
+
+    # Store overrides
+    st.session_state.student_late_days = dict(
+        zip(edited_late_df['Admission No'], edited_late_df['Late'])
+    )
+
+    st.session_state.student_very_late_days = dict(
+        zip(edited_late_df['Admission No'], edited_late_df['Very_Late'])
+    )
+
 # Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
 def sort_class_names(class_names):
 
@@ -779,11 +837,30 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
     # Fill missing optional columns
     if 'Late' not in df.columns:
         df['Late'] = 0
+    
     if 'Very_Late' not in df.columns:
         if 'Very Late' in df.columns:
             df['Very_Late'] = df['Very Late']
         else:
             df['Very_Late'] = 0
+    
+    # Apply manual Late overrides
+    if (
+        'student_late_days' in st.session_state and
+        st.session_state.student_late_days
+    ):
+        df['Late'] = df['Admission No'].map(
+            st.session_state.student_late_days
+        ).fillna(df['Late'])
+    
+    # Apply manual Very Late overrides
+    if (
+        'student_very_late_days' in st.session_state and
+        st.session_state.student_very_late_days
+    ):
+        df['Very_Late'] = df['Admission No'].map(
+            st.session_state.student_very_late_days
+        ).fillna(df['Very_Late'])
     
     # Working days logic
     if 'student_working_days' in st.session_state and st.session_state.student_working_days:
