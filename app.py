@@ -123,18 +123,34 @@ def apply_excel_styling(
             very_late_value >= very_late_threshold
         )
 
-        for cell in row:
+            for idx, cell in enumerate(row):
             cell.font = data_font
             cell.border = thin_border
             cell.alignment = alignment_center
 
-            # 🔴 ABSENT (highest priority)
-            if is_absent and not is_summary:
-                cell.fill = red_fill
+            if not is_summary:
 
-            # 🟡 LATE / VERY LATE
-            elif should_highlight and not is_summary:
-                cell.fill = yellow_fill
+                # Column indexes
+                # 0 = Admission No
+                # 1 = Student Name
+                # 2 = Working_Days
+                # 3 = Present
+                # 4 = Absent
+                # 5 = Late
+                # 6 = Very_Late
+                # 7 = Attendance %
+
+                # 🔴 Highlight Absent column + Student Name
+                if is_absent and idx in [1, 4]:
+                    cell.fill = red_fill
+
+                # 🟡 Highlight only Late column
+                elif late_value >= late_threshold and idx == 5:
+                    cell.fill = yellow_fill
+
+                # 🟡 Highlight only Very_Late column
+                elif very_late_value >= very_late_threshold and idx == 6:
+                    cell.fill = yellow_fill
 
     # COLUMN WIDTHS
     if is_summary:
