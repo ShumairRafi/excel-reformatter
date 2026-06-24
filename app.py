@@ -42,6 +42,8 @@ if 'student_late_days' not in st.session_state:
     st.session_state.student_late_days = {}
 if 'student_very_late_days' not in st.session_state:
     st.session_state.student_very_late_days = {}
+if 'student_absent_days' not in st.session_state:
+    st.session_state.student_absent_days = {}
 
 # Function to reset the application
 def reset_application():
@@ -51,6 +53,10 @@ def reset_application():
     st.session_state.sorted_class_names = []
     st.session_state.working_days = None
     st.session_state.file_uploader_key += 1  # Change the key to reset the file uploader
+    st.session_state.student_working_days = {}
+    st.session_state.student_late_days = {}
+    st.session_state.student_very_late_days = {}
+    st.session_state.student_absent_days = {}
 
 
 # Function to apply Excel styling
@@ -277,6 +283,27 @@ def detect_working_days(df):
     except:
         pass
     return None
+
+
+# Function to find a column safely, even if naming is slightly different
+def find_best_column(df, target_name, fallback=None):
+    available_columns = df.columns.tolist()
+
+    # Exact match first
+    if target_name in available_columns:
+        return target_name
+
+    # Case-insensitive match
+    for col in available_columns:
+        if str(col).strip().lower() == target_name.strip().lower():
+            return col
+
+    # Fuzzy match
+    match = process.extractOne(target_name, available_columns, scorer=fuzz.token_sort_ratio)
+    if match and match[1] > 60:
+        return match[0]
+
+    return fallback
 
 # Function to extract date range from uploaded filename
 def extract_date_range(filename):
@@ -713,6 +740,49 @@ if override_late_days:
         zip(edited_late_df['Admission No'], edited_late_df['Very_Late'])
     )
 
+# Optional: Override Absent days for specific students
+override_absent_days = st.checkbox(
+    "Override Absent days for specific students",
+    help="Enable this to manually change Absent days. Present days and Attendance % will update automatically."
+)
+
+if override_absent_days:
+
+    st.subheader("Set Individual Absent Days")
+    st.caption("Set Absent to 0 to mark a student as fully present for the selected working days.")
+
+    admission_col = find_best_column(df, 'Admission No', 'Admission No')
+    student_col = find_best_column(df, 'Student Name', 'Student Name')
+    absent_col = find_best_column(df, 'Absent', None)
+
+    temp_absent_df = df[[admission_col, student_col]].copy()
+    temp_absent_df.columns = ['Admission No', 'Student Name']
+
+    if absent_col:
+        temp_absent_df['Absent'] = pd.to_numeric(df[absent_col], errors='coerce').fillna(0).astype(int)
+    else:
+        temp_absent_df['Absent'] = 0
+
+    edited_absent_df = st.data_editor(
+        temp_absent_df,
+        use_container_width=True,
+        key="absent_days_editor",
+        column_config={
+            "Absent": st.column_config.NumberColumn(
+                "Absent",
+                min_value=0,
+                max_value=365,
+                step=1,
+                help="Change this student's absent days. Present and Attendance % recalculate automatically."
+            )
+        }
+    )
+
+    # Store overrides
+    st.session_state.student_absent_days = dict(
+        zip(edited_absent_df['Admission No'], edited_absent_df['Absent'])
+    )
+
 # Function to sort class names in natural order (GRADE 01, GRADE 02, etc.)
 def sort_class_names(class_names):
 
@@ -843,6 +913,10 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
             df['Very_Late'] = df['Very Late']
         else:
             df['Very_Late'] = 0
+
+    # Make attendance columns numeric before calculations
+    for col in ['Present', 'Absent', 'Late', 'Very_Late']:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
     # Apply manual Late overrides
     if (
@@ -861,6 +935,16 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         df['Very_Late'] = df['Admission No'].map(
             st.session_state.student_very_late_days
         ).fillna(df['Very_Late'])
+
+    # Apply manual Absent overrides
+    # Important: changing Absent also updates Present, Attendance %, summaries, Excel, PDF, and highlights.
+    if (
+        'student_absent_days' in st.session_state and
+        st.session_state.student_absent_days
+    ):
+        df['Absent'] = df['Admission No'].map(
+            st.session_state.student_absent_days
+        ).fillna(df['Absent'])
     
     # Working days logic
     if 'student_working_days' in st.session_state and st.session_state.student_working_days:
@@ -869,9 +953,24 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
         ).fillna(working_days)
     else:
         df['Working_Days'] = working_days
+
+    df['Working_Days'] = pd.to_numeric(df['Working_Days'], errors='coerce').fillna(working_days)
+    df['Absent'] = pd.to_numeric(df['Absent'], errors='coerce').fillna(0)
+
+    # Keep Absent inside valid limits
+    df['Absent'] = df['Absent'].clip(lower=0)
+    df['Absent'] = np.minimum(df['Absent'], df['Working_Days'])
+
+    # Recalculate Present from Working Days - Absent so absence overrides change everything properly
+    df['Present'] = df['Working_Days'] - df['Absent']
+    df['Present'] = df['Present'].clip(lower=0)
     
     # Attendance %
-    df['Attendance %'] = (df['Present'] / df['Working_Days']) * 100
+    df['Attendance %'] = np.where(
+        df['Working_Days'] > 0,
+        (df['Present'] / df['Working_Days']) * 100,
+        0
+    )
 
     # --- CLASS MAPPING ---
     df['Class'] = df[course_column].map(class_mapping)
@@ -952,7 +1051,7 @@ if process_button:
         summary_data.append({
             "Class": class_name,
             "Total_Students": len(df_detail),
-            "Total_Working_Days": working_days,
+            "Total_Working_Days": round(df_detail["Working_Days"].mean(), 2),
             "Avg_Present": round(df_detail["Present"].mean(), 2),
             "Avg_Absent": round(df_detail["Absent"].mean(), 2),
             "Avg_Late": round(df_detail["Late"].mean(), 2),
