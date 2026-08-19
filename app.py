@@ -1094,8 +1094,8 @@ df['Attendance %'] = np.where(
 # Round only for display/output
 df['Attendance %'] = df['Attendance %'].round(2)
 
-    # --- CLASS MAPPING ---
-    df['Class'] = df[course_column].map(class_mapping)
+# --- CLASS MAPPING ---
+df['Class'] = df[course_column].map(class_mapping)
 
     # 🔥 NEW: Split Grade 02 using batch_id
     def split_grade_2(row):
