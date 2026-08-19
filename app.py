@@ -628,7 +628,9 @@ st.subheader("Working Days Settings")
 auto_working_days = detect_working_days(df)
 
 if auto_working_days:
-    st.success(f"Auto-detected working days from file: {auto_working_days}")
+    st.success(
+        f"Maximum working days found in the uploaded data: {auto_working_days}"
+    )
 else:
     st.warning("Could not auto-detect working days. Please enter manually.")
 
