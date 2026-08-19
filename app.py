@@ -212,23 +212,21 @@ def apply_excel_styling(
 
             if not is_summary:
 
-                # ------------------------------------------------
                 # ABSENT
-                # ------------------------------------------------
-
-                if is_absent and idx in [1, 4]:
-
+                # Only the Absent column is highlighted red.
+                # Student Name is no longer highlighted.
+                
+                if is_absent and idx == 4:
+                
                     cell.fill = red_fill
-
-                # ------------------------------------------------
+                
                 # LATE
-                # ------------------------------------------------
-
+                
                 elif (
                     late_value >= late_threshold
                     and idx == 5
                 ):
-
+                
                     cell.fill = yellow_fill
 
                 # ------------------------------------------------
