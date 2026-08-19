@@ -2179,63 +2179,42 @@ if process_button:
         ]
 
         summary_data.append({
-
-            "Class":
-                class_name,
-
-            "Total_Students":
-                len(df_detail),
-
-            "Total_Working_Days":
+            "Class": class_name,
+            "Total_Students": len(df_detail),
+        
+            # Working days displayed as a whole number
+            # Example: 82, 85, 90
+            "Total_Working_Days": int(
                 round(
-                    df_detail[
-                        "Working_Days"
-                    ].mean(),
-                    2
-                ),
-
-            "Avg_Present":
-                round(
-                    df_detail[
-                        "Present"
-                    ].mean(),
-                    2
-                ),
-
-            "Avg_Absent":
-                round(
-                    df_detail[
-                        "Absent"
-                    ].mean(),
-                    2
-                ),
-
-            "Avg_Late":
-                round(
-                    df_detail[
-                        "Late"
-                    ].mean(),
-                    2
-                ),
-
-            "Avg_Very_Late":
-                round(
-                    df_detail[
-                        "Very_Late"
-                    ].mean(),
-                    2
-                ),
-
-            "Avg_Attendance_Percentage":
-                round(
-                    df_detail[
-                        "Attendance %"
-                    ].mean(),
-                    2
+                    df_detail["Working_Days"].mean()
                 )
-
+            ),
+        
+            "Avg_Present": round(
+                df_detail["Present"].mean(),
+                2
+            ),
+        
+            "Avg_Absent": round(
+                df_detail["Absent"].mean(),
+                2
+            ),
+        
+            "Avg_Late": round(
+                df_detail["Late"].mean(),
+                2
+            ),
+        
+            "Avg_Very_Late": round(
+                df_detail["Very_Late"].mean(),
+                2
+            ),
+        
+            "Avg_Attendance_Percentage": round(
+                df_detail["Attendance %"].mean(),
+                2
+            )
         })
-
     summary_df = pd.DataFrame(
         summary_data
     )
