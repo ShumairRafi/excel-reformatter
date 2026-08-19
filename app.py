@@ -276,12 +276,34 @@ def apply_excel_styling(
 
 # Function to detect working days automatically
 def detect_working_days(df):
+    """
+    Detect the maximum working days in the uploaded data.
+
+    This value is only used as a reference for the UI.
+    Individual student working days are calculated separately
+    using Present + Absent.
+    """
     try:
         if 'Present' in df.columns and 'Absent' in df.columns:
-            df['__total_days__'] = df['Present'] + df['Absent']
-            return int(df['__total_days__'].max())
-    except:
+
+            present = pd.to_numeric(
+                df['Present'],
+                errors='coerce'
+            ).fillna(0)
+
+            absent = pd.to_numeric(
+                df['Absent'],
+                errors='coerce'
+            ).fillna(0)
+
+            student_working_days = present + absent
+
+            if not student_working_days.empty:
+                return int(student_working_days.max())
+
+    except Exception:
         pass
+
     return None
 
 
@@ -946,31 +968,131 @@ def process_real_data(df, class_list, course_column, class_mapping, working_days
             st.session_state.student_absent_days
         ).fillna(df['Absent'])
     
-    # Working days logic
-    if 'student_working_days' in st.session_state and st.session_state.student_working_days:
-        df['Working_Days'] = df['Admission No'].map(
-            st.session_state.student_working_days
-        ).fillna(working_days)
-    else:
-        df['Working_Days'] = working_days
+# STUDENT-SPECIFIC WORKING DAYS
+# ============================================================
 
-    df['Working_Days'] = pd.to_numeric(df['Working_Days'], errors='coerce').fillna(working_days)
-    df['Absent'] = pd.to_numeric(df['Absent'], errors='coerce').fillna(0)
+# Convert attendance values to numeric first
+df['Present'] = pd.to_numeric(
+    df['Present'],
+    errors='coerce'
+).fillna(0)
 
-    # Keep Absent inside valid limits
-    df['Absent'] = df['Absent'].clip(lower=0)
-    df['Absent'] = np.minimum(df['Absent'], df['Working_Days'])
+df['Absent'] = pd.to_numeric(
+    df['Absent'],
+    errors='coerce'
+).fillna(0)
 
-    # Recalculate Present from Working Days - Absent so absence overrides change everything properly
-    df['Present'] = df['Working_Days'] - df['Absent']
-    df['Present'] = df['Present'].clip(lower=0)
-    
-    # Attendance %
-    df['Attendance %'] = np.where(
-        df['Working_Days'] > 0,
-        (df['Present'] / df['Working_Days']) * 100,
-        0
+df['Late'] = pd.to_numeric(
+    df['Late'],
+    errors='coerce'
+).fillna(0)
+
+df['Very_Late'] = pd.to_numeric(
+    df['Very_Late'],
+    errors='coerce'
+).fillna(0)
+
+
+# ------------------------------------------------------------
+# Determine each student's working days from their own data
+# ------------------------------------------------------------
+#
+# Example:
+# Student A: Present 20 + Absent 0 = 20 working days
+# Student B: Present 15 + Absent 0 = 15 working days
+# Student C: Present 12 + Absent 3 = 15 working days
+#
+# Therefore we DO NOT use the maximum working days anymore.
+#
+
+df['Working_Days'] = df['Present'] + df['Absent']
+
+
+# ------------------------------------------------------------
+# Apply manual working-day overrides if enabled
+# ------------------------------------------------------------
+if (
+    'student_working_days' in st.session_state
+    and st.session_state.student_working_days
+):
+    override_series = df['Admission No'].map(
+        st.session_state.student_working_days
     )
+
+    # Only replace the student's calculated working days
+    # when an actual override exists.
+    df['Working_Days'] = override_series.fillna(
+        df['Working_Days']
+    )
+
+
+# Make sure working days are numeric
+df['Working_Days'] = pd.to_numeric(
+    df['Working_Days'],
+    errors='coerce'
+).fillna(0)
+
+
+# ------------------------------------------------------------
+# Apply manual Absent overrides
+# ------------------------------------------------------------
+if (
+    'student_absent_days' in st.session_state
+    and st.session_state.student_absent_days
+):
+    absent_override = df['Admission No'].map(
+        st.session_state.student_absent_days
+    )
+
+    df['Absent'] = absent_override.fillna(df['Absent'])
+
+
+# Keep Absent valid
+df['Absent'] = pd.to_numeric(
+    df['Absent'],
+    errors='coerce'
+).fillna(0)
+
+df['Absent'] = df['Absent'].clip(lower=0)
+
+# Absent cannot exceed that student's working days
+df['Absent'] = np.minimum(
+    df['Absent'],
+    df['Working_Days']
+)
+
+
+# ------------------------------------------------------------
+# Recalculate Present
+# ------------------------------------------------------------
+#
+# This ensures:
+#
+# Working Days = Present + Absent
+#
+# and if the user changes Absent, Present updates correctly.
+#
+df['Present'] = (
+    df['Working_Days'] - df['Absent']
+)
+
+df['Present'] = df['Present'].clip(lower=0)
+
+
+# ------------------------------------------------------------
+# Calculate attendance percentage PER STUDENT
+# ------------------------------------------------------------
+df['Attendance %'] = np.where(
+    df['Working_Days'] > 0,
+    (
+        df['Present']
+        / df['Working_Days']
+    ) * 100,
+    0
+)
+
+# Round only for display/output
+df['Attendance %'] = df['Attendance %'].round(2)
 
     # --- CLASS MAPPING ---
     df['Class'] = df[course_column].map(class_mapping)
